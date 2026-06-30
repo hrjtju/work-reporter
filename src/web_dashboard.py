@@ -5,12 +5,12 @@
 
 import json
 import logging
+import re
 import threading
 from datetime import date, datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from pathlib import Path
-from typing import Any, Callable, Optional
-from urllib.parse import urlparse, parse_qs
+from typing import Any, Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -514,7 +514,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/") or "/"
 
         # 动态路由: /api/event/<id>/category
-        import re
         m = re.match(r"^/api/event/(\d+)/category$", path)
         if m:
             self._api_event_category(int(m.group(1)))

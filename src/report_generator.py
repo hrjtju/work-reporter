@@ -1,7 +1,4 @@
-"""报告生成模块 — 日报/周报的数据聚合和模板生成.
-
-LLM 调用部分预留接口，当前生成结构化数据摘要，待接入大模型后自动替换.
-"""
+"""报告生成模块 — 日报/周报的数据聚合、LLM 生成和模板兜底."""
 
 import logging
 from dataclasses import dataclass, field
@@ -42,10 +39,7 @@ class WeeklyReportData:
 # ── 报告生成器 ──────────────────────────────────────────
 
 class ReportGenerator:
-    """报告生成器 — 聚合事件数据并生成结构化摘要.
-
-    LLM 调用接口已预留，当前生成基于模板的摘要.
-    """
+    """报告生成器 — 聚合事件数据，优先使用 LLM 生成报告，失败时回退到模板."""
 
     def __init__(self, event_store, output_path: str = "reports", report_format: str = "markdown", llm: Any = None):
         """
