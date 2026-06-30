@@ -147,6 +147,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   <div class="actions" style="margin-bottom:0;">
     <button class="btn" onclick="apiPost('/api/capture')">📸 截屏</button>
     <button class="btn" onclick="apiPost('/api/pause')">⏯ 暂停</button>
+    <button class="btn" id="btnAuto" onclick="toggleAuto()">🔄 自动</button>
   </div>
 </div>
 <div class="container">
@@ -192,6 +193,14 @@ async function fetchJSON(url) { const r = await fetch(url); return r.json(); }
 async function apiPost(path) {
   try { const r=await fetch(API+path,{method:'POST'}); const d=await r.json(); showToast(d.message||'OK'); refresh(); }
   catch(e) { showToast('Error: '+e.message); }
+}
+async function toggleAuto() {
+  try {
+    var r = await fetch(API+'/toggle-auto', {method:'POST'});
+    var d = await r.json();
+    showToast(d.message);
+    refresh();
+  } catch(e) { showToast('Error: '+e.message); }
 }
 function showToast(msg) { const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000); }
 
@@ -494,6 +503,11 @@ async function refresh() {
     $('evtCount').textContent = status.today_events;
     $('privSkip').textContent = status.privacy_skips;
     $('pauseStatus').textContent = status.is_paused ? '已暂停' : (status.is_auto ? '自动 ('+status.auto_interval+'min)' : '手动');
+    var ba = $('btnAuto');
+    if (ba) {
+      ba.textContent = status.is_auto ? '🔄 自动中' : '🔄 自动';
+      ba.className = status.is_auto ? 'btn btn-accent' : 'btn';
+    }
     $('dailyStatus').textContent = status.has_daily_report ? '✅ 已生成' : '⏳ 未生成';
 
     var events = await fetchJSON(API+'/events/today');
@@ -604,6 +618,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         routes = {
             "/api/capture": self._api_capture,
             "/api/pause": self._api_pause,
+            "/api/toggle-auto": self._api_toggle_auto,
             "/api/report/daily": self._api_report_daily,
             "/api/report/weekly": self._api_report_weekly,
         }
@@ -763,6 +778,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             })
         except Exception as e:
             self._send_json({"success": False, "message": str(e)}, 500)
+
+    def _api_toggle_auto(self) -> None:
+        """切换自动截屏."""
+        app = self.app_ref
+        if not app:
+            self._send_json({"error": "App not ready"}, 503)
+            return
+        app._toggle_auto()
+        self._send_json({
+            "success": True,
+            "is_auto": app.screenshot_capture.is_auto,
+            "message": "自动截屏已开启" if app.screenshot_capture.is_auto else "自动截屏已关闭",
+        })
 
     def _api_pause(self) -> None:
         app = self.app_ref

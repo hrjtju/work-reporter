@@ -190,10 +190,8 @@ class ScreenshotCapture:
                 self.on_notify("Work Reporter", "截屏失败，请查看日志")
 
     def _on_pause_hotkey(self) -> None:
-        """暂停/恢复快捷键按下."""
+        """暂停/恢复快捷键 — 仅暂停截图，不影响自动截屏模式."""
         self._paused = not self._paused
-        if self._paused:
-            self._stop_auto_capture()
         state = "已暂停" if self._paused else "已恢复"
         logger.info("截屏%s (快捷键: %s)", state, hotkey_to_display(self.pause_hotkey_str))
         if self.on_notify:
