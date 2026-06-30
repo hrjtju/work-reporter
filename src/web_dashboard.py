@@ -31,7 +31,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     --success: #3a7d5a; --warn: #c4982f; --danger: #bb5440;
     --font: 'Inter','Microsoft YaHei','PingFang SC',sans-serif;
     --radius: 14px; --radius-sm: 10px;
-    --cat-code: #2563eb; --cat-doc: #16a34a; --cat-comm: #ea580c;
+    --cat-code: #475569; --cat-doc: #16a34a; --cat-comm: #ea580c;
     --cat-browse: #9333ea; --cat-meeting: #dc2626; --cat-design: #0891b2;
     --cat-learn: #4f46e5; --cat-misc: #78716c; --cat-other: #db2777;
   }
@@ -78,7 +78,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .cat-select:focus { outline:2px solid var(--accent-soft); border-color:var(--accent); }
   .project-tag { font-size:11px; color:var(--accent); background:var(--accent-soft); padding:1px 6px; border-radius:4px; }
   .badge { display:inline-block; padding:1px 7px; border-radius:4px; font-size:10px; font-weight:600; }
-  .badge-code { background:rgba(37,99,235,0.1); color:var(--cat-code); }
+  .badge-code { background:rgba(71,85,105,0.1); color:var(--cat-code); }
   .badge-doc { background:rgba(22,163,74,0.1); color:var(--cat-doc); }
   .badge-comm { background:rgba(234,88,12,0.1); color:var(--cat-comm); }
   .badge-browse { background:rgba(147,51,234,0.1); color:var(--cat-browse); }
@@ -284,7 +284,7 @@ async function changeCategory(id, cat) {
 
 // 类别到颜色的映射（与 CSS 变量 --cat-* 保持一致）
 var CAT_COLORS = {
-  '创作构建': '#2563eb',
+  '创作构建': '#475569',
   '阅读查阅': '#16a34a',
   '沟通协作': '#ea580c',
   '分析计算': '#9333ea',
