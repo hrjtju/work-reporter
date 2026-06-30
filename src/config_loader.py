@@ -1,6 +1,7 @@
 """配置加载模块 — 读取和验证 config.yaml"""
 
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,25 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "database": {"path": "data/work_reporter.db"},
     "report": {"output_path": "reports", "format": "markdown"},
+    "web_dashboard": {"port": 8765, "auto_open": True},
+    "vision_llm": {
+        "enabled": True,
+        "provider": "ollama",
+        "base_url": "http://localhost:11434/v1",
+        "model": "gemma4:12b",
+        "api_key": "ollama",
+        "timeout": 120,
+        "max_retries": 3,
+    },
+    "text_llm": {
+        "enabled": True,
+        "provider": "ollama",
+        "base_url": "http://localhost:11434/v1",
+        "model": "gemma4:12b",
+        "api_key": "ollama",
+        "timeout": 120,
+        "max_retries": 3,
+    },
 }
 
 
@@ -93,7 +113,6 @@ def validate_config(config: dict[str, Any]) -> list[str]:
 
     sch = config.get("scheduler", {})
     try:
-        from datetime import datetime
         datetime.strptime(sch.get("work_hours_start", "09:00"), "%H:%M")
         datetime.strptime(sch.get("work_hours_end", "20:00"), "%H:%M")
         datetime.strptime(sch.get("daily_report_time", "18:00"), "%H:%M")
