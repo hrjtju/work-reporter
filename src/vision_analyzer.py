@@ -7,7 +7,6 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from io import BytesIO
-from pathlib import Path
 from typing import Any, Optional
 
 import requests
