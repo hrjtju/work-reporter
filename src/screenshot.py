@@ -369,6 +369,12 @@ class ScreenshotCapture:
             self._today_count[date_str] = 0
         self._today_count[date_str] += 1
 
+        # 清理超过 3 天前的计数 key，防止无限增长
+        stale = [k for k in self._today_count if k < date_str]
+        if len(stale) > 7:
+            for k in stale:
+                del self._today_count[k]
+
         if self._today_count[date_str] > self.max_per_day:
             self._cleanup_oldest_in_dir(date_dir)
 
