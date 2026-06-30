@@ -1,4 +1,4 @@
-"""视觉分析模块 — 调用本地 MiniCPM-V-4.6 多模态模型分析截图"""
+"""视觉分析模块 — 通过 OpenAI 兼容 API 调用本地 VLM (Ollama) 分析截图"""
 
 import base64
 import json
@@ -22,12 +22,12 @@ logger = logging.getLogger(__name__)
 class VisionAnalysisResult:
     """多模态模型分析结果."""
 
-    activity: str = ""            # 简短描述（≤40字）
-    category: str = ""            # 编码|文档|沟通|浏览|会议|设计|调试|研究|其他
-    detail: str = ""              # 详细描述，含文件/函数/文档名（≥200字）
-    project: str = ""             # 推断的项目名称
-    technologies: list = field(default_factory=list)   # 识别的技术栈
-    task_phase: str = ""          # 开始|进行中|收尾|调试|审查
+    activity: str = ""            # 简短描述（≤30字）
+    category: str = ""            # 创作构建|阅读查阅|沟通协作|分析计算|会议讨论|设计绘图|学习研究|娱乐休闲|其他
+    detail: str = ""              # 详细描述，含截图具体内容
+    project: str = ""             # 推断的项目/知识领域
+    technologies: list = field(default_factory=list)   # 识别的软件工具
+    task_phase: str = ""          # 刚启动|进行中|快完成|在检查修改|在探索尝试
     context_switch: bool = False  # 是否切换了任务
     context_note: str = ""        # 与之前工作的关联说明
     is_productive: bool = True    # 是否为生产性活动
