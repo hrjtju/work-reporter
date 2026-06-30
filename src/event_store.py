@@ -87,7 +87,8 @@ class EventStore:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._write_lock = threading.Lock()
-        self._local = threading.local()  # 线程本地存储
+        self._local = threading.local()
+        self._all_conns: list[sqlite3.Connection] = []  # 跟踪所有连接
 
         # 初始化数据库
         self._init_db()
@@ -100,6 +101,7 @@ class EventStore:
             conn.execute("PRAGMA foreign_keys=ON")
             conn.row_factory = sqlite3.Row
             self._local.conn = conn
+            self._all_conns.append(conn)
         return self._local.conn
 
     def _init_db(self) -> None:
@@ -425,7 +427,12 @@ class EventStore:
             return count
 
     def close(self) -> None:
-        """关闭数据库连接."""
-        if hasattr(self._local, "conn") and self._local.conn is not None:
-            self._local.conn.close()
+        """关闭所有线程的数据库连接."""
+        for conn in self._all_conns:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        self._all_conns.clear()
+        if hasattr(self._local, "conn"):
             self._local.conn = None
