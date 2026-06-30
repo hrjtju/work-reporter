@@ -78,7 +78,7 @@ class WorkMemory:
         store: Any,                     # EventStore
         llm: Any = None,                # VisionAnalyzer (用于记忆总结)
         summarize_interval: int = 20,   # 每 N 个事件触发一次记忆总结
-        max_recent_events: int = 10,    # 注入 prompt 的最近事件数
+        max_recent_events: int = 5,     # 注入 prompt 的最近事件数
     ):
         self.store = store
         self.llm = llm
@@ -110,12 +110,12 @@ class WorkMemory:
             if self._snapshot.work_patterns:
                 parts.append(f"**工作模式**：{self._snapshot.work_patterns}")
 
-            # 最近活动（从数据库实时查询，保证最新）
+            # 最近活动（只取前 N 条，只显示时间和标题）
             try:
                 recent = self.store.get_recent_events(self.max_recent_events)
                 if recent:
-                    lines = ["**最近活动时间线**："]
-                    for evt in reversed(recent):  # 正序显示
+                    lines = ["**最近活动**："]
+                    for evt in reversed(recent):
                         ts = evt.get("timestamp", "")
                         time_str = ""
                         if ts:
@@ -125,12 +125,7 @@ class WorkMemory:
                             except Exception:
                                 pass
                         activity = evt.get("activity", "")
-                        category = evt.get("category", "")
-                        project = evt.get("project", "")
-                        line = f"  {time_str} [{category}] {activity}"
-                        if project:
-                            line += f" ({project})"
-                        lines.append(line)
+                        lines.append(f"  {time_str} {activity}")
                     parts.append("\n".join(lines))
             except Exception:
                 pass

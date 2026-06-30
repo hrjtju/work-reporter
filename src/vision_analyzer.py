@@ -56,17 +56,13 @@ class WeeklyReportResult:
 
 # ── 常量 ────────────────────────────────────────────────
 
-SCREENSHOT_ANALYSIS_PROMPT = """你是桌面截图分析器。观察截图，返回一个 JSON 对象描述用户正在做什么。
+SYSTEM_PROMPT = """你是桌面截图分析器。你的唯一任务是观察截图并返回一个 JSON 对象描述用户活动。
 
 ## 铁律
-你的整个回复必须是一个 JSON 对象。不要输出任何 JSON 之外的内容——不要 markdown 代码块、不要解释、不要思考过程、不要前缀后缀文字。
-
-## 上下文
-应用: {app_name} | 窗口: {window_title} | 时间: {timestamp}
-历史: {memory_context}
+你的整个回复必须是一个 JSON 对象。不要输出任何 JSON 之外的内容——不要 markdown 代码块、不要解释、不要思考过程、不要前缀后缀文字。如果无法分析，也必须返回 JSON（confidence 设为 0）。
 
 ## JSON 结构（严格按此格式输出）
-{{
+{
   "activity": "用户具体在做什么，必须包含截图中的实质性内容名称（30字内），格式：'动作 具体主题'。例：'阅读约瑟夫森结临界电流论文'、'用Python编写VAE损失函数'、'学习实变函数勒贝格积分定义'",
   "category": "严格从以下9选1：创作构建|阅读查阅|沟通协作|分析计算|会议讨论|设计绘图|学习研究|娱乐休闲|其他",
   "detail": "详细描述截图内容：(1)可见的具体文字/标题/概念/文件名 (2)软件及界面区域 (3)操作状态 (4)任务上下文。尽量具体，至少100字。",
@@ -77,7 +73,7 @@ SCREENSHOT_ANALYSIS_PROMPT = """你是桌面截图分析器。观察截图，返
   "context_note": "与历史上下文的关系",
   "is_productive": true,
   "confidence": 0.85
-}}
+}
 
 ## 9个分类
 - 创作构建: 写文档/写代码/做PPT/画图/P图/写邮件/剪视频
@@ -96,6 +92,10 @@ SCREENSHOT_ANALYSIS_PROMPT = """你是桌面截图分析器。观察截图，返
 - 学习研究类同样要具体：提取学科、知识点、材料名、学习方式
 - task_phase: 空白/新建→刚启动，内容半满→进行中，接近完成→快完成，在对比→在检查修改，翻菜单/试参数→在探索尝试
 - confidence: 能看清具体内容→0.8+，只能推测→0.5，完全无法判断→0.0"""
+
+# 用户消息模板 — 包含动态上下文
+USER_CONTEXT_TEMPLATE = """应用: {app_name} | 窗口: {window_title} | 时间: {timestamp}
+历史: {memory_context}"""
 
 # 日报生成 prompt
 
@@ -214,9 +214,9 @@ class VisionAnalyzer:
             if not tiles:
                 use_tiles = False
 
-        # 构建 prompt
+        # 构建用户消息（动态上下文 + 图片）
         ts_str = timestamp.strftime("%Y-%m-%d %H:%M:%S") if timestamp else ""
-        prompt = SCREENSHOT_ANALYSIS_PROMPT.format(
+        user_text = USER_CONTEXT_TEMPLATE.format(
             app_name=app_name or "未知",
             window_title=window_title or "未知",
             timestamp=ts_str,
@@ -224,15 +224,12 @@ class VisionAnalyzer:
         )
 
         if use_tiles:
-            prompt += (
-
-                "\n\n注意：这张截图被切分成了 2×2 = 4 个瓦片发送给你。"
-                "请综合所有瓦片的内容进行分析：左上瓦片 → 右上瓦片 → 左下瓦片 → 右下瓦片。"
-                "每张瓦片都是原图的一部分，请拼接理解整体屏幕内容。"
+            user_text += (
+                "\n注意：截图被切分成了 2×2 = 4 个瓦片。"
+                "请综合所有瓦片分析：左上→右上→左下→右下。"
             )
 
-        # 构建消息
-        content: list[dict] = [{"type": "text", "text": prompt}]
+        content: list[dict] = [{"type": "text", "text": user_text}]
         if use_tiles:
             for i, tile_b64 in enumerate(tiles):
                 positions = ["左上", "右上", "左下", "右下"]
@@ -256,27 +253,68 @@ class VisionAnalyzer:
                 "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"},
             })
 
-        messages = [{"role": "user", "content": content}]
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": content},
+        ]
 
-        # 调用 API
-        try:
-            response = self._chat_completion(messages)
-            result = self._parse_analysis_response(response)
-            result.raw_response = response
-            logger.debug(
-                "VLM 原始响应 (%d 字符, %s): %s",
-                len(response), "瓦片" if use_tiles else "单图", response[:200],
-            )
-            return result
-        except Exception as e:
-            logger.error("Vision API 调用失败: %s", e)
-            self.error_count += 1
-            return VisionAnalysisResult(
-                activity=f"使用 {app_name or '未知应用'}",
-                category="其他",
-                detail=f"分析失败: {str(e)[:200]}",
-                confidence=0.0,
-            )
+        # 调用 API（带 JSON 格式校验和重试）
+        max_json_retries = 2
+        for json_attempt in range(max_json_retries + 1):
+            try:
+                response = self._chat_completion(messages)
+            except Exception as e:
+                logger.error("Vision API 调用失败: %s", e)
+                self.error_count += 1
+                return VisionAnalysisResult(
+                    activity=f"使用 {app_name or '未知应用'}",
+                    category="其他",
+                    detail=f"API 调用失败: {str(e)[:200]}",
+                    confidence=0.0,
+                )
+
+            # 尝试提取并验证 JSON
+            json_str = _extract_json(response)
+            json_valid = False
+            if json_str:
+                try:
+                    json.loads(json_str)
+                    json_valid = True
+                except json.JSONDecodeError:
+                    pass
+
+            if json_valid:
+                result = self._parse_analysis_response(response)
+                result.raw_response = response
+                logger.debug(
+                    "VLM 原始响应 (%d 字符, %s): %s",
+                    len(response), "瓦片" if use_tiles else "单图", response[:200],
+                )
+                return result
+
+            # JSON 无效 — 重试
+            if json_attempt < max_json_retries:
+                logger.warning(
+                    "VLM 返回非 JSON 格式 (%d/%d)，请求修正...",
+                    json_attempt + 1, max_json_retries,
+                )
+                messages.append({"role": "assistant", "content": response})
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "你的回复不是有效的 JSON。请严格按照 system prompt 中的 JSON 格式输出。"
+                        "只输出纯 JSON 对象，以 { 开头、以 } 结尾，不要任何其他内容。"
+                    ),
+                })
+            else:
+                logger.warning("VLM JSON 重试耗尽 (%d 次)，使用 fallback", max_json_retries)
+                return VisionAnalysisResult(
+                    activity=f"使用 {app_name or '未知应用'}",
+                    category="其他",
+                    detail=response[:300],
+                    confidence=0.0,
+                    raw_response=response,
+                )
 
     # ── 报告生成方法 ──────────────────────────────────
 
