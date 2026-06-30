@@ -60,8 +60,6 @@ SCREENSHOT_ANALYSIS_PROMPT = """你是一个桌面活动识别助手。请仔细
 
 你的回复必须是一个纯 JSON 对象（以左花括号开始、以右花括号结束）。不要输出任何 JSON 之外的内容——不要 markdown 代码块、不要解释、不要前缀或后缀文字。如果无法分析，也必须返回 JSON（confidence 设为 0）。
 
-**注意：请直接输出 JSON，不要进行冗长的内部推理。你的思维过程应当简洁，把主要 token 预算留给 JSON 输出。**
-
 ## 已知信息
 - 活跃应用：{app_name}
 - 窗口标题：{window_title}
@@ -449,7 +447,7 @@ class VisionAnalyzer:
                     json={
                         "model": self.model_name,
                         "messages": messages,
-                        "max_tokens": 8192,
+                        "max_tokens": 16384,
                         "temperature": 0.1,
                     },
                     timeout=self.timeout,
@@ -477,7 +475,7 @@ class VisionAnalyzer:
                     json={
                         "model": self.model_name,
                         "messages": [{"role": "user", "content": prompt}],
-                        "max_tokens": 4096,
+                        "max_tokens": 8192,
                         "temperature": 0.3,
                     },
                     timeout=self.timeout,
