@@ -31,9 +31,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     --success: #3a7d5a; --warn: #c4982f; --danger: #bb5440;
     --font: 'Inter','Microsoft YaHei','PingFang SC',sans-serif;
     --radius: 14px; --radius-sm: 10px;
-    --cat-code: #475569; --cat-doc: #16a34a; --cat-comm: #ea580c;
-    --cat-browse: #9333ea; --cat-meeting: #dc2626; --cat-design: #0891b2;
-    --cat-learn: #4f46e5; --cat-misc: #78716c; --cat-other: #db2777;
+    --cat-code: #c05e3e; --cat-doc: #2d8c4a; --cat-comm: #2563eb;
+    --cat-browse: #7c3aed; --cat-meeting: #dc2626; --cat-design: #0d9488;
+    --cat-learn: #4f46e5; --cat-misc: #78716c; --cat-other: #be185d;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:var(--font); background:var(--bg); color:var(--text); min-height:100vh; line-height:1.5; }
@@ -78,15 +78,15 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .cat-select:focus { outline:2px solid var(--accent-soft); border-color:var(--accent); }
   .project-tag { font-size:11px; color:var(--accent); background:var(--accent-soft); padding:1px 6px; border-radius:4px; }
   .badge { display:inline-block; padding:1px 7px; border-radius:4px; font-size:10px; font-weight:600; }
-  .badge-code { background:rgba(71,85,105,0.1); color:var(--cat-code); }
-  .badge-doc { background:rgba(22,163,74,0.1); color:var(--cat-doc); }
-  .badge-comm { background:rgba(234,88,12,0.1); color:var(--cat-comm); }
-  .badge-browse { background:rgba(147,51,234,0.1); color:var(--cat-browse); }
+  .badge-code { background:rgba(192,94,62,0.1); color:var(--cat-code); }
+  .badge-doc { background:rgba(45,140,74,0.1); color:var(--cat-doc); }
+  .badge-comm { background:rgba(37,99,235,0.1); color:var(--cat-comm); }
+  .badge-browse { background:rgba(124,58,237,0.1); color:var(--cat-browse); }
   .badge-meeting { background:rgba(220,38,38,0.1); color:var(--cat-meeting); }
-  .badge-design { background:rgba(8,145,178,0.1); color:var(--cat-design); }
+  .badge-design { background:rgba(13,148,136,0.1); color:var(--cat-design); }
   .badge-learn { background:rgba(79,70,229,0.1); color:var(--cat-learn); }
   .badge-misc { background:rgba(120,113,108,0.1); color:var(--cat-misc); }
-  .badge-other { background:rgba(219,39,119,0.1); color:var(--cat-other); }
+  .badge-other { background:rgba(190,24,93,0.1); color:var(--cat-other); }
 
   .heatmap-container { margin-bottom:14px; }
   .heatmap-legend { display:flex; gap:10px; margin-bottom:8px; font-size:11px; color:var(--text2); flex-wrap:wrap; }
@@ -284,14 +284,14 @@ async function changeCategory(id, cat) {
 
 // 类别到颜色的映射（与 CSS 变量 --cat-* 保持一致）
 var CAT_COLORS = {
-  '创作构建': '#475569',
-  '阅读查阅': '#16a34a',
-  '沟通协作': '#ea580c',
-  '分析计算': '#9333ea',
+  '创作构建': '#c05e3e',
+  '阅读查阅': '#2d8c4a',
+  '沟通协作': '#2563eb',
+  '分析计算': '#7c3aed',
   '会议讨论': '#dc2626',
-  '设计绘图': '#0891b2',
+  '设计绘图': '#0d9488',
   '学习研究': '#4f46e5',
-  '娱乐休闲': '#db2777',
+  '娱乐休闲': '#be185d',
   '其他': '#78716c',
 };
 function getCatColor(cat) { return CAT_COLORS[cat] || '#78716c'; }
