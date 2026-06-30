@@ -58,7 +58,9 @@ class WeeklyReportResult:
 
 SCREENSHOT_ANALYSIS_PROMPT = """你是一个桌面活动识别助手。请仔细观察这张屏幕截图，精确描述用户正在做什么。你的核心价值在于**从截图中提取尽可能具体的主题和内容**，而不是给出泛泛的类别标签。
 
-你的回复必须是一个纯 JSON 对象，以 `{` 开头、以 `}` 结尾。不要输出任何 JSON 之外的内容——不要 markdown 代码块、不要解释、不要前缀或后缀文字。如果无法分析，也必须返回 JSON（confidence 设为 0）。
+你的回复必须是一个纯 JSON 对象（以左花括号开始、以右花括号结束）。不要输出任何 JSON 之外的内容——不要 markdown 代码块、不要解释、不要前缀或后缀文字。如果无法分析，也必须返回 JSON（confidence 设为 0）。
+
+**注意：请直接输出 JSON，不要进行冗长的内部推理。你的思维过程应当简洁，把主要 token 预算留给 JSON 输出。**
 
 ## 已知信息
 - 活跃应用：{app_name}
@@ -153,7 +155,7 @@ SCREENSHOT_ANALYSIS_PROMPT = """你是一个桌面活动识别助手。请仔细
 - context_switch：对比历史上下文，如果话题、任务领域、软件类型与最近记录明显不同，设为 true
 - confidence：画面清晰且能明确判断具体主题 → 0.8+；只能推测大致方向 → 0.5 左右；完全无法判断 → 0.0
 
-再次强调：只输出纯 JSON，以 { 开始，以 } 结束。不要添加任何其他内容。"""
+再次强调：只输出纯 JSON（左花括号开始，右花括号结束）。不要添加任何其他内容。"""
 
 # 日报生成 prompt
 DAILY_REPORT_PROMPT = """你是一个专业的工作报告撰写助手。以下是用户今天的工作活动记录：
@@ -447,7 +449,7 @@ class VisionAnalyzer:
                     json={
                         "model": self.model_name,
                         "messages": messages,
-                        "max_tokens": 4096,
+                        "max_tokens": 8192,
                         "temperature": 0.1,
                     },
                     timeout=self.timeout,
@@ -475,7 +477,7 @@ class VisionAnalyzer:
                     json={
                         "model": self.model_name,
                         "messages": [{"role": "user", "content": prompt}],
-                        "max_tokens": 2048,
+                        "max_tokens": 4096,
                         "temperature": 0.3,
                     },
                     timeout=self.timeout,
