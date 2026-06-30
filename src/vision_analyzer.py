@@ -180,6 +180,10 @@ class VisionAnalyzer:
             logger.info("切换模型: %s -> %s", self.model_name, model_name)
             self.model_name = model_name
 
+    def close(self) -> None:
+        """关闭 HTTP session，释放连接池."""
+        self._session.close()
+
     # ── 核心方法：截图分析 ────────────────────────────
 
     def analyze_screenshot(

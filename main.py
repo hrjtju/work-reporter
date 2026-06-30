@@ -9,6 +9,7 @@ import signal
 import sys
 from datetime import date, datetime
 from pathlib import Path
+import threading
 
 # Fix Windows console encoding for emoji support
 if sys.platform == "win32":
@@ -507,6 +508,10 @@ class WorkReporterApp:
         self.scheduler.stop()
         self.web_dashboard.stop()
         self.tray.stop()
+        if self.vision_llm:
+            self.vision_llm.close()
+        if self.text_llm:
+            self.text_llm.close()
         self.store.close()
         self._release_lock()
         self.logger.info("Work Reporter 已退出")
