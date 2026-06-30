@@ -31,9 +31,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     --success: #3a7d5a; --warn: #c4982f; --danger: #bb5440;
     --font: 'Inter','Microsoft YaHei','PingFang SC',sans-serif;
     --radius: 14px; --radius-sm: 10px;
-    --cat-code: #c05e3e; --cat-doc: #2d8c4a; --cat-comm: #2563eb;
-    --cat-browse: #7c3aed; --cat-meeting: #dc2626; --cat-design: #0d9488;
-    --cat-learn: #4f46e5; --cat-misc: #78716c; --cat-other: #be185d;
+    --cat-code: #7D55BF; --cat-doc: #9C9694; --cat-comm: #CA7646;
+    --cat-browse: #923130; --cat-meeting: #65E3C8; --cat-design: #973594;
+    --cat-learn: #5A93CD; --cat-misc: #50C259; --cat-other: #D4E65A;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:var(--font); background:var(--bg); color:var(--text); min-height:100vh; line-height:1.5; }
@@ -78,15 +78,15 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .cat-select:focus { outline:2px solid var(--accent-soft); border-color:var(--accent); }
   .project-tag { font-size:11px; color:var(--accent); background:var(--accent-soft); padding:1px 6px; border-radius:4px; }
   .badge { display:inline-block; padding:1px 7px; border-radius:4px; font-size:10px; font-weight:600; }
-  .badge-code { background:rgba(192,94,62,0.1); color:var(--cat-code); }
-  .badge-doc { background:rgba(45,140,74,0.1); color:var(--cat-doc); }
-  .badge-comm { background:rgba(37,99,235,0.1); color:var(--cat-comm); }
-  .badge-browse { background:rgba(124,58,237,0.1); color:var(--cat-browse); }
-  .badge-meeting { background:rgba(220,38,38,0.1); color:var(--cat-meeting); }
-  .badge-design { background:rgba(13,148,136,0.1); color:var(--cat-design); }
-  .badge-learn { background:rgba(79,70,229,0.1); color:var(--cat-learn); }
-  .badge-misc { background:rgba(120,113,108,0.1); color:var(--cat-misc); }
-  .badge-other { background:rgba(190,24,93,0.1); color:var(--cat-other); }
+  .badge-code { background:rgba(125,85,191,0.12); color:var(--cat-code); }
+  .badge-doc { background:rgba(156,150,148,0.12); color:var(--cat-doc); }
+  .badge-comm { background:rgba(202,118,70,0.12); color:var(--cat-comm); }
+  .badge-browse { background:rgba(146,49,48,0.12); color:var(--cat-browse); }
+  .badge-meeting { background:rgba(101,227,200,0.12); color:var(--cat-meeting); }
+  .badge-design { background:rgba(151,53,148,0.12); color:var(--cat-design); }
+  .badge-learn { background:rgba(90,147,205,0.12); color:var(--cat-learn); }
+  .badge-misc { background:rgba(80,194,89,0.12); color:var(--cat-misc); }
+  .badge-other { background:rgba(212,230,90,0.12); color:var(--cat-other); }
 
   .heatmap-container { margin-bottom:14px; }
   .heatmap-legend { display:flex; gap:10px; margin-bottom:8px; font-size:11px; color:var(--text2); flex-wrap:wrap; }
@@ -284,17 +284,17 @@ async function changeCategory(id, cat) {
 
 // 类别到颜色的映射（与 CSS 变量 --cat-* 保持一致）
 var CAT_COLORS = {
-  '创作构建': '#c05e3e',
-  '阅读查阅': '#2d8c4a',
-  '沟通协作': '#2563eb',
-  '分析计算': '#7c3aed',
-  '会议讨论': '#dc2626',
-  '设计绘图': '#0d9488',
-  '学习研究': '#4f46e5',
-  '娱乐休闲': '#be185d',
-  '其他': '#78716c',
+  '创作构建': '#7D55BF',
+  '阅读查阅': '#9C9694',
+  '沟通协作': '#CA7646',
+  '分析计算': '#923130',
+  '会议讨论': '#65E3C8',
+  '设计绘图': '#973594',
+  '学习研究': '#5A93CD',
+  '娱乐休闲': '#50C259',
+  '其他': '#D4E65A',
 };
-function getCatColor(cat) { return CAT_COLORS[cat] || '#78716c'; }
+function getCatColor(cat) { return CAT_COLORS[cat] || '#9C9694'; }
 
 function renderHeatmap(events) {
   var DEFAULT_MIN = 5;   // 最后一个事件的默认时长（分钟）
