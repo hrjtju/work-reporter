@@ -68,8 +68,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .event-item.cat-learn { border-left-color:var(--cat-learn); }
   .event-item.cat-misc { border-left-color:var(--cat-misc); }
   .event-item.cat-other { border-left-color:var(--cat-other); }
-  .event-time { min-width:64px; font-size:13px; font-family:monospace; color:var(--faint); font-variant-numeric:tabular-nums; }
-  .event-gap { min-width:64px; text-align:center; font-size:11px; color:var(--faint); }
+  .event-time { min-width:64px; font-size:15px; font-weight:600; font-family:monospace; color:var(--text); font-variant-numeric:tabular-nums; }
+  .event-gap { min-width:64px; text-align:center; font-size:12px; color:var(--faint); }
   .event-body { flex:1; min-width:0; }
   .event-title { font-weight:600; font-size:13px; word-break:break-word; }
   .event-desc { color:var(--text2); font-size:12px; margin-top:3px; line-height:1.5; word-break:break-word; }

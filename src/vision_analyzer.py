@@ -200,12 +200,15 @@ class VisionAnalyzer:
         """
         # 编码图片为 base64 — 大图使用瓦片模式
         img = Image.open(image_path)
-        use_tiles = max(img.size) > 1920
+        try:
+            use_tiles = max(img.size) > 1920
 
-        if use_tiles:
-            tiles = self._encode_image_tiles(img)
-            if not tiles:
-                use_tiles = False
+            if use_tiles:
+                tiles = self._encode_image_tiles(img)
+                if not tiles:
+                    use_tiles = False
+        finally:
+            img.close()
 
         # 构建用户消息（动态上下文 + 图片）
         ts_str = timestamp.strftime("%Y-%m-%d %H:%M:%S") if timestamp else ""
