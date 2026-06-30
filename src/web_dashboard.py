@@ -31,9 +31,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     --success: #3a7d5a; --warn: #c4982f; --danger: #bb5440;
     --font: 'Inter','Microsoft YaHei','PingFang SC',sans-serif;
     --radius: 14px; --radius-sm: 10px;
-    --cat-code: #3b6fb6; --cat-doc: #2a8c4e; --cat-comm: #c07a20;
-    --cat-browse: #7b3fa3; --cat-meeting: #c0392b; --cat-design: #16806d;
-    --cat-learn: #5b4cc4; --cat-misc: #6b7280; --cat-other: #8a8a8a;
+    --cat-code: #2563eb; --cat-doc: #16a34a; --cat-comm: #ea580c;
+    --cat-browse: #9333ea; --cat-meeting: #dc2626; --cat-design: #0891b2;
+    --cat-learn: #4f46e5; --cat-misc: #78716c; --cat-other: #db2777;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:var(--font); background:var(--bg); color:var(--text); min-height:100vh; line-height:1.5; }
@@ -68,7 +68,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .event-item.cat-learn { border-left-color:var(--cat-learn); }
   .event-item.cat-misc { border-left-color:var(--cat-misc); }
   .event-item.cat-other { border-left-color:var(--cat-other); }
-  .event-time { min-width:64px; font-size:15px; font-weight:600; font-family:monospace; color:var(--text); font-variant-numeric:tabular-nums; }
+  .event-time { min-width:72px; font-size:17px; font-weight:700; font-family:monospace; color:var(--text); font-variant-numeric:tabular-nums; }
   .event-gap { min-width:64px; text-align:center; font-size:12px; color:var(--faint); }
   .event-body { flex:1; min-width:0; }
   .event-title { font-weight:600; font-size:13px; word-break:break-word; }
@@ -78,15 +78,15 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .cat-select:focus { outline:2px solid var(--accent-soft); border-color:var(--accent); }
   .project-tag { font-size:11px; color:var(--accent); background:var(--accent-soft); padding:1px 6px; border-radius:4px; }
   .badge { display:inline-block; padding:1px 7px; border-radius:4px; font-size:10px; font-weight:600; }
-  .badge-code { background:rgba(59,111,182,0.12); color:var(--cat-code); }
-  .badge-doc { background:rgba(42,140,78,0.12); color:var(--cat-doc); }
-  .badge-comm { background:rgba(192,122,32,0.12); color:var(--cat-comm); }
-  .badge-browse { background:rgba(123,63,163,0.12); color:var(--cat-browse); }
-  .badge-meeting { background:rgba(192,57,43,0.12); color:var(--cat-meeting); }
-  .badge-design { background:rgba(22,128,109,0.12); color:var(--cat-design); }
-  .badge-learn { background:rgba(91,76,196,0.12); color:var(--cat-learn); }
-  .badge-misc { background:rgba(107,114,128,0.12); color:var(--cat-misc); }
-  .badge-other { background:rgba(138,138,138,0.12); color:var(--cat-other); }
+  .badge-code { background:rgba(37,99,235,0.1); color:var(--cat-code); }
+  .badge-doc { background:rgba(22,163,74,0.1); color:var(--cat-doc); }
+  .badge-comm { background:rgba(234,88,12,0.1); color:var(--cat-comm); }
+  .badge-browse { background:rgba(147,51,234,0.1); color:var(--cat-browse); }
+  .badge-meeting { background:rgba(220,38,38,0.1); color:var(--cat-meeting); }
+  .badge-design { background:rgba(8,145,178,0.1); color:var(--cat-design); }
+  .badge-learn { background:rgba(79,70,229,0.1); color:var(--cat-learn); }
+  .badge-misc { background:rgba(120,113,108,0.1); color:var(--cat-misc); }
+  .badge-other { background:rgba(219,39,119,0.1); color:var(--cat-other); }
 
   .heatmap-container { margin-bottom:14px; }
   .heatmap-legend { display:flex; gap:10px; margin-bottom:8px; font-size:11px; color:var(--text2); flex-wrap:wrap; }
@@ -284,17 +284,17 @@ async function changeCategory(id, cat) {
 
 // 类别到颜色的映射（与 CSS 变量 --cat-* 保持一致）
 var CAT_COLORS = {
-  '创作构建': '#4A90D9',
-  '阅读查阅': '#2ecc71',
-  '沟通协作': '#f39c12',
-  '分析计算': '#9b59b6',
-  '会议讨论': '#e74c3c',
-  '设计绘图': '#1abc9c',
-  '学习研究': '#7B68EE',
-  '娱乐休闲': '#95a5a6',
-  '其他': '#8899aa',
+  '创作构建': '#2563eb',
+  '阅读查阅': '#16a34a',
+  '沟通协作': '#ea580c',
+  '分析计算': '#9333ea',
+  '会议讨论': '#dc2626',
+  '设计绘图': '#0891b2',
+  '学习研究': '#4f46e5',
+  '娱乐休闲': '#db2777',
+  '其他': '#78716c',
 };
-function getCatColor(cat) { return CAT_COLORS[cat] || '#8899aa'; }
+function getCatColor(cat) { return CAT_COLORS[cat] || '#78716c'; }
 
 function renderHeatmap(events) {
   var DEFAULT_MIN = 5;   // 最后一个事件的默认时长（分钟）
