@@ -20,7 +20,7 @@ if sys.platform == "win32":
 
 from src.config_loader import load_config, validate_config, get_project_root
 from src.screenshot import ScreenshotCapture, ScreenshotResult
-from src.privacy_filter import PrivacyFilter, PrivacyResult
+from src.privacy_filter import PrivacyFilter
 from src.event_store import EventStore
 from src.report_generator import ReportGenerator
 from src.scheduler import ReportScheduler
@@ -296,7 +296,7 @@ class WorkReporterApp:
                     )
                 else:
                     self.logger.info("⚠ LLM 未启用/不可用，使用规则引擎")
-                activity = self._build_activity_summary(result, privacy_result)
+                activity = self._build_activity_summary(result)
                 category = "未分类"
                 detail = f"应用: {result.app_name}, 窗口: {result.window_title}"
                 project = ""
@@ -337,14 +337,11 @@ class WorkReporterApp:
         except Exception:
             self.logger.exception("处理截图回调失败")
 
-    def _build_activity_summary(
-        self, result: ScreenshotResult, privacy_result: PrivacyResult
-    ) -> str:
-        """根据截图信息构建活动摘要（LLM 接入前的临时方案）."""
+    def _build_activity_summary(self, result: ScreenshotResult) -> str:
+        """根据截图信息构建活动摘要（LLM 不可用时的 fallback）."""
         app = result.app_name or "未知应用"
         title = result.window_title or ""
 
-        # 简单规则推断活动
         if app:
             return f"使用 {app} — {title}" if title else f"使用 {app}"
         return f"屏幕 {result.screen_index} 截图"
