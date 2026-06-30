@@ -173,10 +173,7 @@ class ScreenshotCapture:
             return
         try:
             results = self.capture_all_screens()
-            if self.on_capture:
-                for result in results:
-                    self.on_capture(result)
-            # 弹窗通知
+            # 弹窗通知（立刻显示，不等待 VLM 处理）
             if self.on_notify:
                 valid = [r for r in results if not r.skipped]
                 dup = [r for r in results if r.is_duplicate]
@@ -184,6 +181,9 @@ class ScreenshotCapture:
                     self.on_notify("Work Reporter", "截屏已跳过（与上一张重复）")
                 elif valid:
                     self.on_notify("Work Reporter", f"📸 已截屏 — {len(valid)} 张有效")
+            if self.on_capture:
+                for result in results:
+                    self.on_capture(result)
         except Exception:
             logger.exception("截屏失败")
             if self.on_notify:
