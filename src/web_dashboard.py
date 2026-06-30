@@ -232,17 +232,16 @@ function renderTimeline(events) {
     var cls = catCss(cat);
     var t = fmtTime(e.timestamp);
 
-    // 时间间隔
-    var gapHtml = '';
+    // 时间间隔（始终渲染占位列，避免首个 item 缩进不一致）
+    var gapHtml = '<div class="event-gap">';
     if (lastTime) {
       var diffMin = Math.round((lastTime - new Date(e.timestamp))/60000);
       if (diffMin >= 5) {
         var gapText = diffMin >= 60 ? Math.round(diffMin/60)+'h' : diffMin+'m';
-        gapHtml = '<div class="event-gap">↓'+gapText+'</div>';
-      } else {
-        gapHtml = '<div class="event-gap"></div>';
+        gapHtml += '↓'+gapText;
       }
     }
+    gapHtml += '</div>';
     lastTime = new Date(e.timestamp);
 
     // detail：过滤 VLM 失败前缀
