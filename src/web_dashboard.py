@@ -474,18 +474,16 @@ function renderLLMOutput(events) {
   }
 
   hasLLM.forEach(function(e) {
-    var catIcon = CAT_ICONS[e.category]||'📌';
+    var icon = CAT_ICONS[e.category]||'📌';
     var bcls = badgeClass(e.category||'其他');
 
-    // 格式化 raw_response：尝试提取 JSON 并美化
     var rawDisplay = e.raw_response || '(空)';
-    // 限制显示长度，避免页面卡顿
     if (rawDisplay.length > 5000) rawDisplay = rawDisplay.substring(0,5000) + '\n\n... (truncated, total ' + e.raw_response.length + ' chars)';
 
     html += '<div class="llm-event">';
     html += '<div class="llm-event-header">';
     html += '<span class="time">'+e.time+'</span>';
-    html += '<span class="activity">'+catIcon+' '+e.activity+'</span>';
+    html += '<span class="activity">'+icon+' '+e.activity+'</span>';
     html += '<span class="'+bcls+'">'+e.category+'</span>';
     if (e.project) html += '<span class="project-tag">'+e.project+'</span>';
     html += '</div>';
