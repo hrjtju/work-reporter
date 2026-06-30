@@ -1,7 +1,6 @@
 """调度模块 — 日报/周报定时生成 + 截屏热键监听整合"""
 
 import logging
-import threading
 from datetime import date, datetime, timedelta
 from typing import Any, Callable, Optional
 
