@@ -58,7 +58,7 @@ class WeeklyReportResult:
 
 SCREENSHOT_ANALYSIS_PROMPT = """你是一个桌面活动识别助手。请仔细观察这张屏幕截图，精确描述用户正在做什么。你的核心价值在于**从截图中提取尽可能具体的主题和内容**，而不是给出泛泛的类别标签。
 
-你必须严格使用中文输出，并且只输出一个合法的 JSON 对象（不要输出 markdown 代码块标记如 ```json，不要输出其他解释文字，直接输出裸 JSON）。
+你的回复必须是一个纯 JSON 对象，以 `{` 开头、以 `}` 结尾。不要输出任何 JSON 之外的内容——不要 markdown 代码块、不要解释、不要前缀或后缀文字。如果无法分析，也必须返回 JSON（confidence 设为 0）。
 
 ## 已知信息
 - 活跃应用：{app_name}
@@ -151,7 +151,9 @@ SCREENSHOT_ANALYSIS_PROMPT = """你是一个桌面活动识别助手。请仔细
 
 - task_phase：空白/新建=刚启动，内容半满=进行中，内容完整接近完成=快完成，在对比修改=检查修改，在翻菜单/试参数=探索尝试
 - context_switch：对比历史上下文，如果话题、任务领域、软件类型与最近记录明显不同，设为 true
-- confidence：画面清晰且能明确判断具体主题 → 0.8+；只能推测大致方向 → 0.5 左右；完全无法判断 → 0.0"""
+- confidence：画面清晰且能明确判断具体主题 → 0.8+；只能推测大致方向 → 0.5 左右；完全无法判断 → 0.0
+
+再次强调：只输出纯 JSON，以 { 开始，以 } 结束。不要添加任何其他内容。"""
 
 # 日报生成 prompt
 DAILY_REPORT_PROMPT = """你是一个专业的工作报告撰写助手。以下是用户今天的工作活动记录：
@@ -445,7 +447,7 @@ class VisionAnalyzer:
                     json={
                         "model": self.model_name,
                         "messages": messages,
-                        "max_tokens": 2048,
+                        "max_tokens": 4096,
                         "temperature": 0.1,
                     },
                     timeout=self.timeout,
@@ -534,9 +536,9 @@ class VisionAnalyzer:
                 )
                 category = "其他"
 
-            # 截断过长的 detail（UI 中只显示前 200 字）
-            if len(detail) > 500:
-                detail = detail[:497] + "..."
+            # 截断过长的 detail
+            if len(detail) > 800:
+                detail = detail[:797] + "..."
 
             return VisionAnalysisResult(
                 activity=activity,
