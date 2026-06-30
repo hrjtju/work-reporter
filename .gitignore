@@ -8,3 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+.claude
+
+data/*
+reports/daily/*
+reports/weekly/*
