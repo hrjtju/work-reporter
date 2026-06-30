@@ -410,7 +410,13 @@ class VisionAnalyzer:
 
         try:
             response = self._text_completion(prompt)
-            result = self._parse_report_response(response, "weekly")
+            md = self._validate_markdown(response)
+            if md is None:
+                logger.warning("周报生成返回非 markdown，重试...")
+                retry_prompt = prompt + "\n\n上一次回复格式错误。请直接输出 Markdown 文本。"
+                response = self._text_completion(retry_prompt)
+                md = self._validate_markdown(response) or response
+            result = WeeklyReportResult(content=md)
             return result
         except Exception as e:
             logger.error("周报生成失败: %s", e)
@@ -576,46 +582,6 @@ class VisionAnalyzer:
                 confidence=0.0,
             )
 
-    def _parse_report_response(self, raw: str, report_type: str) -> Any:
-        """从 LLM 响应中解析报告.
-
-        尝试顺序：json.loads → 手动字符串遍历提取 content 字段 → 去代码围栏后直接用.
-        """
-        # 尝试 1: 标准 JSON 解析
-        try:
-            json_str = _extract_json(raw)
-            data = json.loads(json_str)
-            if report_type == "daily":
-                return DailyReportResult(
-                    content=data.get("content", raw),
-                    summary=data.get("summary", ""),
-                    tomorrow_plan=data.get("tomorrow_plan", ""),
-                )
-            else:
-                return WeeklyReportResult(
-                    content=data.get("content", raw),
-                    summary=data.get("summary", ""),
-                    key_achievements=data.get("key_achievements", []),
-                    next_week_plan=data.get("next_week_plan", ""),
-                )
-        except (json.JSONDecodeError, KeyError) as e:
-            logger.warning("JSON 解析报告响应失败: %s, 尝试手动提取", e)
-
-        # 尝试 2: 手动从 JSON 文本中提取 "content" 字段值
-        content = _extract_json_field(raw, "content")
-        if content and len(content) > 50:
-            logger.info("手动提取 content 字段成功 (%d 字符)", len(content))
-            if report_type == "daily":
-                return DailyReportResult(content=content, summary="")
-            return WeeklyReportResult(content=content, summary="")
-
-        # 尝试 3: 去除代码围栏后直接使用
-        clean = _strip_markdown_fences(raw)
-        logger.warning("content 字段提取失败，使用原始响应")
-        if report_type == "daily":
-            return DailyReportResult(content=clean, summary="解析失败")
-        return WeeklyReportResult(content=clean, summary="解析失败")
-
     # ── 辅助 ──────────────────────────────────────────
 
     @staticmethod
@@ -714,72 +680,3 @@ def _extract_json(text: str) -> str:
     return text
 
 
-def _extract_json_field(text: str, field_name: str) -> str:
-    """从 LLM 返回的 JSON 文本中手动提取指定字段的值.
-
-    在 json.loads 因转义问题失败时使用。逐个字符遍历，
-    正确处理 \\n, \\t, \\", \\\\ 等 JSON 转义序列。
-    """
-    # 找到字段名的起始位置
-    pattern = f'"{field_name}"\\s*:\\s*"'
-    match = re.search(pattern, text)
-    if not match:
-        return ""
-
-    start = match.end()
-    result: list[str] = []
-    i = start
-    while i < len(text):
-        ch = text[i]
-        if ch == "\\" and i + 1 < len(text):
-            next_ch = text[i + 1]
-            if next_ch == "n":
-                result.append("\n")
-            elif next_ch == "t":
-                result.append("\t")
-            elif next_ch == '"':
-                result.append('"')
-            elif next_ch == "\\":
-                result.append("\\")
-            elif next_ch == "r":
-                result.append("\r")
-            else:
-                result.append(ch + next_ch)  # 未知转义，保留
-            i += 2
-        elif ch == '"':
-            # 检查是否是该字段的结束引号（后随 , 或 } 加可选空白）
-            rest = text[i + 1 : i + 20].lstrip("\r\n\t ")
-            if rest and rest[0] in (",", "}"):
-                break
-            result.append(ch)
-            i += 1
-        else:
-            result.append(ch)
-            i += 1
-
-    return "".join(result)
-
-
-def _strip_markdown_fences(text: str) -> str:
-    """去除 Markdown 代码围栏和可能的 JSON 外壳."""
-    # 去掉 ```json / ``` 围栏
-    if "```json" in text:
-        start = text.index("```json") + 7
-        end = text.rfind("```")
-        if end > start:
-            text = text[start:end]
-    elif text.startswith("```"):
-        nl = text.find("\n")
-        if nl > 0:
-            text = text[nl + 1 :]
-        if text.rstrip().endswith("```"):
-            text = text[: text.rfind("```")]
-
-    # 如果仍然看起来是 JSON，尝试提取 content 字段
-    text = text.strip()
-    if text.startswith("{") and text.endswith("}"):
-        extracted = _extract_json_field(text, "content")
-        if extracted:
-            return extracted
-
-    return text.strip()
