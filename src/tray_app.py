@@ -3,7 +3,7 @@
 import logging
 import threading
 import webbrowser
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 from typing import Any, Callable, Optional
 
