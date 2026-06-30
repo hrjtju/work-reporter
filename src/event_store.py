@@ -233,6 +233,17 @@ class EventStore:
             conn.commit()
             return cursor.lastrowid
 
+    def update_event_category(self, event_id: int, category: str) -> bool:
+        """更新事件的分类标签."""
+        with self._write_lock:
+            conn = self._get_conn()
+            cursor = conn.execute(
+                "UPDATE work_events SET category = ? WHERE id = ?",
+                (category, event_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     def get_work_events_for_date(self, target_date: date) -> list[dict]:
         """获取指定日期的工作事件."""
         conn = self._get_conn()

@@ -71,9 +71,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .event-item.cat-other { border-left-color:var(--cat-other); }
   .event-time { color:var(--accent); font-family:monospace; min-width:48px; font-size:11px; }
   .event-gap { color:var(--text2); font-size:10px; min-width:48px; text-align:center; }
-  .event-detail { flex:1; min-width:0; }
-  .event-activity { font-weight:500; word-break:break-word; }
-  .event-meta { color:var(--text2); font-size:10px; margin-top:1px; display:flex; gap:6px; flex-wrap:wrap; }
+  .event-body { flex:1; min-width:0; }
+  .event-title { font-weight:500; word-break:break-word; font-size:13px; }
+  .event-desc { color:var(--text2); font-size:11px; margin-top:3px; line-height:1.5; word-break:break-word; }
+  .event-footer { display:flex; gap:6px; align-items:center; margin-top:4px; flex-wrap:wrap; }
+  .cat-select { font-size:10px; padding:2px 4px; border-radius:4px; background:var(--bg); color:var(--text2); border:1px solid var(--border); cursor:pointer; }
+  .cat-select:focus { outline:1px solid var(--accent); }
   .badge { display:inline-block; padding:1px 7px; border-radius:4px; font-size:10px; font-weight:500; }
   .badge-code { background:rgba(74,144,217,0.2); color:#7db8f0; }
   .badge-doc { background:rgba(46,204,113,0.2); color:#5ddb8e; }
@@ -182,17 +185,17 @@ function renderTimeline(events) {
   var html = '';
   if (events.length === 0) return html;
 
-  // 反转顺序：最新的在最上面
+  var CATS = ['创作构建','阅读查阅','沟通协作','分析计算','会议讨论','设计绘图','学习研究','娱乐休闲','其他'];
+
   var rev = events.slice().reverse();
   var lastTime = null;
 
   rev.forEach(function(e) {
-    var cls = catCss(e.category||'其他');
-    var icon = catIcon(e.category||'其他');
-    var bcls = badgeClass(e.category||'其他');
+    var cat = (e.category && e.category in CAT_CSS) ? e.category : '其他';
+    var cls = catCss(cat);
     var t = fmtTime(e.timestamp);
 
-    // 倒序时间间隔（回到更早的事件），用 ↓ 表示时间后退
+    // 时间间隔
     var gapHtml = '';
     if (lastTime) {
       var diffMin = Math.round((lastTime - new Date(e.timestamp))/60000);
@@ -205,29 +208,42 @@ function renderTimeline(events) {
     }
     lastTime = new Date(e.timestamp);
 
-    // 截断 detail：去除 VLM 的失败性自述，只保留实质性描述
-    var shortDetail = '';
-    if (e.detail) {
-      var d = e.detail;
-      if (/^(由于|因为|VLM|The image|This image|截图|Unable|Cannot)/i.test(d)) {
-        d = '';
-      }
-      if (d) shortDetail = d.substring(0, 80);
+    // detail：过滤 VLM 失败前缀
+    var desc = e.detail || '';
+    if (/^(由于|因为|VLM|The image|This image|截图|Unable|Cannot)/i.test(desc)) {
+      desc = '';
     }
+
+    // category 下拉选项
+    var catOpts = '';
+    CATS.forEach(function(c) {
+      catOpts += '<option value="'+c+'"'+(c===cat?' selected':'')+'>'+c+'</option>';
+    });
 
     html += '<div class="event-item '+cls+'">';
     html += '<div class="event-time">'+t+'</div>';
     html += gapHtml;
-    html += '<div class="event-detail">';
-    html += '<div class="event-activity">'+icon+' '+(e.activity||'未记录')+'</div>';
-    html += '<div class="event-meta">';
-    html += '<span class="'+bcls+'">'+(e.category||'其他')+'</span>';
+    html += '<div class="event-body">';
+    html += '<div class="event-title">'+(e.activity||'未记录')+'</div>';
+    if (desc) html += '<div class="event-desc">'+desc+'</div>';
+    html += '<div class="event-footer">';
+    html += '<select class="cat-select" onchange="changeCategory('+e.id+',this.value)">'+catOpts+'</select>';
     if (e.project) html += '<span class="project-tag">'+e.project+'</span>';
-    if (shortDetail) html += '<span style="opacity:0.6">'+shortDetail+'</span>';
     html += '</div></div></div>';
   });
 
   return html;
+}
+
+async function changeCategory(id, cat) {
+  try {
+    await fetch(API+'/event/'+id+'/category', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({category: cat})
+    });
+    refresh();
+  } catch(e) { console.error(e); }
 }
 
 // 类别到颜色的映射（与 CSS 变量 --cat-* 保持一致）
@@ -497,6 +513,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
 
+        # 动态路由: /api/event/<id>/category
+        import re
+        m = re.match(r"^/api/event/(\d+)/category$", path)
+        if m:
+            self._api_event_category(int(m.group(1)))
+            return
+
         routes = {
             "/api/capture": self._api_capture,
             "/api/pause": self._api_pause,
@@ -673,6 +696,31 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "is_paused": app.screenshot_capture._paused,
             "message": f"截屏{state}",
         })
+
+    ALLOWED_CATEGORIES = {
+        "创作构建", "阅读查阅", "沟通协作", "分析计算",
+        "会议讨论", "设计绘图", "学习研究", "娱乐休闲", "其他",
+    }
+
+    def _api_event_category(self, event_id: int) -> None:
+        """更新事件的分类标签."""
+        app = self.app_ref
+        if not app:
+            self._send_json({"error": "App not ready"}, 503)
+            return
+        try:
+            body = json.loads(self._read_body())
+            cat = (body.get("category") or "").strip()
+            if cat not in self.ALLOWED_CATEGORIES:
+                self._send_json({"error": f"无效分类: {cat}"}, 400)
+                return
+            ok = app.store.update_event_category(event_id, cat)
+            if ok:
+                self._send_json({"success": True})
+            else:
+                self._send_json({"error": "事件不存在"}, 404)
+        except Exception as e:
+            self._send_json({"error": str(e)}, 500)
 
     def _api_report_daily(self) -> None:
         app = self.app_ref
