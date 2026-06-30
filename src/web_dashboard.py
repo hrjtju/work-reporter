@@ -21,45 +21,44 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Work Reporter — 仪表盘</title>
+<title>Work Reporter</title>
 <style>
   :root {
-    --bg: #1a1a2e; --card: #16213e; --accent: #4A90D9; --accent2: #7B68EE;
-    --text: #e0e0e0; --text2: #a0a0a0; --success: #2ecc71; --warn: #f39c12;
-    --danger: #e74c3c; --border: #2a2a4a;
-    --cat-code: #4A90D9; --cat-doc: #2ecc71; --cat-comm: #f39c12;
-    --cat-browse: #9b59b6; --cat-meeting: #e74c3c; --cat-design: #1abc9c;
-    --cat-learn: #7B68EE; --cat-misc: #8899aa; --cat-other: #95a5a6;
+    --bg: #f3f1ea; --surface: #fffefb; --surface2: #f7f6f0;
+    --text: #28251f; --text2: #6c685f; --faint: #9a958b;
+    --border: #e3ded3; --hair: #ece8df;
+    --accent: #c05e3e; --accent-hover: #a9512f; --accent-soft: #f5ece4;
+    --success: #3a7d5a; --warn: #c4982f; --danger: #bb5440;
+    --font: 'Inter','Microsoft YaHei','PingFang SC',sans-serif;
+    --radius: 14px; --radius-sm: 10px;
+    --cat-code: #3b6fb6; --cat-doc: #2a8c4e; --cat-comm: #c07a20;
+    --cat-browse: #7b3fa3; --cat-meeting: #c0392b; --cat-design: #16806d;
+    --cat-learn: #5b4cc4; --cat-misc: #6b7280; --cat-other: #8a8a8a;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Segoe UI','Microsoft YaHei',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
-  .header { background:linear-gradient(135deg,var(--card),#0f3460); padding:24px 32px; border-bottom:1px solid var(--border); }
-  .header h1 { font-size:22px; font-weight:600; }
-  .header .subtitle { color:var(--text2); margin-top:4px; font-size:13px; }
-  .container { max-width:1200px; margin:0 auto; padding:24px; }
-  .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:24px; }
-  .stat-card { background:var(--card); border-radius:12px; padding:18px; border:1px solid var(--border); transition:transform 0.2s; }
-  .stat-card:hover { transform:translateY(-2px); }
-  .stat-card .label { color:var(--text2); font-size:11px; text-transform:uppercase; letter-spacing:1px; }
-  .stat-card .value { font-size:30px; font-weight:700; margin:6px 0; }
-  .stat-card .value.accent { color:var(--accent); }
-  .stat-card .value.success { color:var(--success); }
-  .stat-card .value.warn { color:var(--warn); }
-  .actions { display:flex; gap:10px; margin-bottom:24px; flex-wrap:wrap; }
-  .btn { padding:10px 18px; border-radius:8px; border:none; cursor:pointer; font-size:13px; font-weight:500; transition:all 0.2s; display:flex; align-items:center; gap:5px; }
-  .btn:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,0.3); }
-  .btn-primary { background:var(--accent); color:white; }
-  .btn-secondary { background:var(--border); color:var(--text); }
-  .btn-success { background:var(--success); color:white; }
-  .btn-warn { background:var(--warn); color:white; }
-  .layout-2col { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; }
-  @media (max-width:800px) { .layout-2col { grid-template-columns:1fr; } }
-  .section { background:var(--card); border-radius:12px; padding:20px; border:1px solid var(--border); }
-  .section h2 { font-size:15px; font-weight:600; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
-  .section h3 { font-size:13px; font-weight:600; color:var(--accent); padding:8px 0 4px; border-bottom:1px solid var(--border); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
-  .timeline { max-height:520px; overflow-y:auto; }
-  .event-item { display:flex; align-items:flex-start; gap:10px; padding:8px 12px; font-size:12px; border-left:3px solid transparent; margin:2px 0; border-radius:0 6px 6px 0; transition:background 0.15s; }
-  .event-item:hover { background:rgba(255,255,255,0.03); }
+  body { font-family:var(--font); background:var(--bg); color:var(--text); min-height:100vh; line-height:1.5; }
+  .header { background:var(--surface); padding:18px 32px; border-bottom:1px solid var(--hair); display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+  .header h1 { font-size:18px; font-weight:600; letter-spacing:-0.3px; }
+  .header .subtitle { color:var(--faint); font-size:12px; }
+  .container { max-width:1440px; margin:0 auto; padding:20px 24px; }
+  .stats-bar { display:flex; gap:0; margin-bottom:18px; background:var(--surface); border-radius:var(--radius); border:1px solid var(--border); overflow:hidden; }
+  .stats-bar .stat { flex:1; padding:14px 16px; text-align:center; border-right:1px solid var(--hair); }
+  .stats-bar .stat:last-child { border-right:none; }
+  .stats-bar .stat .label { font-size:11px; color:var(--faint); text-transform:uppercase; letter-spacing:0.5px; }
+  .stats-bar .stat .value { font-size:24px; font-weight:700; margin-top:2px; }
+  .actions { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+  .btn { padding:8px 14px; border-radius:8px; border:1px solid var(--border); cursor:pointer; font-size:12px; font-weight:600; transition:all 0.14s; font-family:var(--font); background:var(--surface); color:var(--text); display:flex; align-items:center; gap:4px; }
+  .btn:hover { border-color:var(--accent); color:var(--accent); }
+  .btn-accent { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn-accent:hover { background:var(--accent-hover); color:#fff; }
+  .btn-sm { padding:5px 10px; font-size:11px; }
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
+  .main-grid { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(360px,0.8fr); gap:18px; align-items:start; }
+  @media (max-width:860px) { .main-grid { grid-template-columns:1fr; } }
+
+  .timeline { } /* no max-height */
+  .event-item { display:flex; align-items:flex-start; gap:10px; padding:9px 12px; border-left:3px solid transparent; margin:1px 0; border-radius:0 8px 8px 0; transition:background 0.12s; }
+  .event-item:hover { background:var(--surface2); }
   .event-item.cat-code { border-left-color:var(--cat-code); }
   .event-item.cat-doc { border-left-color:var(--cat-doc); }
   .event-item.cat-comm { border-left-color:var(--cat-comm); }
@@ -69,92 +68,120 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .event-item.cat-learn { border-left-color:var(--cat-learn); }
   .event-item.cat-misc { border-left-color:var(--cat-misc); }
   .event-item.cat-other { border-left-color:var(--cat-other); }
-  .event-time { color:var(--accent); font-family:monospace; min-width:48px; font-size:11px; }
-  .event-gap { color:var(--text2); font-size:10px; min-width:48px; text-align:center; }
+  .event-time { min-width:64px; font-size:13px; font-family:monospace; color:var(--faint); font-variant-numeric:tabular-nums; }
+  .event-gap { min-width:64px; text-align:center; font-size:11px; color:var(--faint); }
   .event-body { flex:1; min-width:0; }
-  .event-title { font-weight:500; word-break:break-word; font-size:13px; }
-  .event-desc { color:var(--text2); font-size:11px; margin-top:3px; line-height:1.5; word-break:break-word; }
-  .event-footer { display:flex; gap:6px; align-items:center; margin-top:4px; flex-wrap:wrap; }
-  .cat-select { font-size:10px; padding:2px 4px; border-radius:4px; background:var(--bg); color:var(--text2); border:1px solid var(--border); cursor:pointer; }
-  .cat-select:focus { outline:1px solid var(--accent); }
-  .badge { display:inline-block; padding:1px 7px; border-radius:4px; font-size:10px; font-weight:500; }
-  .badge-code { background:rgba(74,144,217,0.2); color:#7db8f0; }
-  .badge-doc { background:rgba(46,204,113,0.2); color:#5ddb8e; }
-  .badge-comm { background:rgba(243,156,18,0.2); color:#f7b84e; }
-  .badge-browse { background:rgba(155,89,182,0.2); color:#b07cd8; }
-  .badge-meeting { background:rgba(231,76,60,0.2); color:#e8837a; }
-  .badge-design { background:rgba(26,188,156,0.2); color:#48d1b5; }
-  .badge-learn { background:rgba(123,104,238,0.2); color:#a99df4; }
-  .badge-misc { background:rgba(136,153,170,0.2); color:#a0b0c0; }
-  .badge-other { background:rgba(160,160,160,0.2); color:#bbb; }
-  .project-tag { color:var(--accent2); font-size:10px; background:rgba(123,104,238,0.15); padding:1px 6px; border-radius:3px; }
-  .heatmap-container { margin-bottom:12px; }
-  .heatmap-legend { display:flex; gap:10px; margin-bottom:8px; font-size:10px; color:var(--text2); flex-wrap:wrap; align-items:center; }
+  .event-title { font-weight:600; font-size:13px; word-break:break-word; }
+  .event-desc { color:var(--text2); font-size:12px; margin-top:3px; line-height:1.5; word-break:break-word; }
+  .event-footer { display:flex; gap:6px; align-items:center; margin-top:5px; flex-wrap:wrap; }
+  .cat-select { font-size:11px; padding:2px 5px; border-radius:4px; background:var(--surface2); color:var(--text2); border:1px solid var(--border); cursor:pointer; font-family:var(--font); }
+  .cat-select:focus { outline:2px solid var(--accent-soft); border-color:var(--accent); }
+  .project-tag { font-size:11px; color:var(--accent); background:var(--accent-soft); padding:1px 6px; border-radius:4px; }
+  .badge { display:inline-block; padding:1px 7px; border-radius:4px; font-size:10px; font-weight:600; }
+  .badge-code { background:rgba(59,111,182,0.12); color:var(--cat-code); }
+  .badge-doc { background:rgba(42,140,78,0.12); color:var(--cat-doc); }
+  .badge-comm { background:rgba(192,122,32,0.12); color:var(--cat-comm); }
+  .badge-browse { background:rgba(123,63,163,0.12); color:var(--cat-browse); }
+  .badge-meeting { background:rgba(192,57,43,0.12); color:var(--cat-meeting); }
+  .badge-design { background:rgba(22,128,109,0.12); color:var(--cat-design); }
+  .badge-learn { background:rgba(91,76,196,0.12); color:var(--cat-learn); }
+  .badge-misc { background:rgba(107,114,128,0.12); color:var(--cat-misc); }
+  .badge-other { background:rgba(138,138,138,0.12); color:var(--cat-other); }
+
+  .heatmap-container { margin-bottom:14px; }
+  .heatmap-legend { display:flex; gap:10px; margin-bottom:8px; font-size:11px; color:var(--text2); flex-wrap:wrap; }
   .heatmap-legend .legend-item { display:flex; align-items:center; gap:4px; }
-  .heatmap-legend .legend-swatch { width:12px; height:12px; border-radius:2px; flex-shrink:0; }
+  .heatmap-legend .legend-swatch { width:10px; height:10px; border-radius:2px; }
   .heatmap-bars { display:flex; gap:4px; align-items:flex-end; }
   .heatmap-bar-col { display:flex; flex-direction:column; align-items:center; }
-  .heatmap-bar { width:18px; height:120px; display:flex; flex-direction:column-reverse; border-radius:2px; overflow:hidden; outline:1px solid rgba(255,255,255,0.06); flex-shrink:0; }
+  .heatmap-bar { width:18px; height:120px; display:flex; flex-direction:column-reverse; border-radius:2px; overflow:hidden; outline:1px solid var(--hair); flex-shrink:0; }
   .heatmap-seg { width:100%; flex-shrink:0; transition:opacity 0.2s; }
   .heatmap-seg:hover { opacity:0.7; }
-  .heatmap-label { font-size:9px; color:var(--text2); margin-top:3px; font-family:monospace; }
-  .empty { text-align:center; color:var(--text2); padding:40px; font-size:14px; }
-  .status-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:8px; }
-  .status-dot.active { background:var(--success); animation:pulse 2s infinite; }
-  .status-dot.paused { background:var(--warn); }
-  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
-  .toast { position:fixed; top:20px; right:20px; background:var(--card); border:1px solid var(--border); padding:12px 20px; border-radius:8px; font-size:13px; z-index:1000; animation:slideIn 0.3s ease; }
-  @keyframes slideIn { from { transform:translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }
-  ::-webkit-scrollbar { width:5px; } ::-webkit-scrollbar-track { background:transparent; } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-  .tab-bar { display:flex; gap:0; margin-bottom:14px; border-bottom:2px solid var(--border); }
-  .tab-btn { padding:8px 16px; font-size:13px; font-weight:500; cursor:pointer; border:none; background:none; color:var(--text2); border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.2s; }
+  .heatmap-label { font-size:9px; color:var(--faint); margin-top:3px; font-family:monospace; }
+
+  .tab-bar { display:flex; gap:0; margin-bottom:12px; border-bottom:1px solid var(--hair); }
+  .tab-btn { padding:7px 14px; font-size:12px; font-weight:600; cursor:pointer; border:none; background:none; color:var(--faint); border-bottom:2px solid transparent; margin-bottom:-1px; transition:all 0.15s; font-family:var(--font); }
   .tab-btn:hover { color:var(--text); }
   .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
-  .llm-event { background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:10px; }
-  .llm-event-header { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+
+  .report-panel { position:sticky; top:20px; }
+  .report-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .report-header h2 { font-size:15px; font-weight:600; }
+  .report-body { font-size:13px; line-height:1.7; }
+  .report-body h1 { font-size:20px; margin:16px 0 8px; font-weight:600; }
+  .report-body h2 { font-size:16px; margin:14px 0 6px; font-weight:600; }
+  .report-body h3 { font-size:14px; margin:10px 0 4px; font-weight:600; }
+  .report-body p { margin:6px 0; }
+  .report-body ul, .report-body ol { margin:4px 0 8px 20px; }
+  .report-body li { margin:2px 0; }
+  .report-body code { background:var(--surface2); padding:1px 5px; border-radius:3px; font-size:12px; }
+  .report-body pre { background:var(--surface2); padding:10px; border-radius:8px; font-size:12px; overflow-x:auto; margin:8px 0; }
+  .report-body table { border-collapse:collapse; width:100%; margin:8px 0; font-size:12px; }
+  .report-body th, .report-body td { border:1px solid var(--border); padding:6px 10px; text-align:left; }
+  .report-body th { background:var(--surface2); font-weight:600; }
+  .report-body strong { font-weight:600; }
+  .report-body blockquote { border-left:3px solid var(--accent); padding:4px 12px; margin:8px 0; color:var(--text2); }
+
+  .empty-state { min-height:80px; border:1px dashed var(--border); border-radius:var(--radius-sm); display:grid; place-items:center; color:var(--faint); text-align:center; padding:20px; font-size:13px; }
+  .empty { text-align:center; color:var(--faint); padding:32px; font-size:13px; }
+
+  .status-dot { width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:6px; }
+  .status-dot.active { background:var(--success); }
+  .status-dot.paused { background:var(--warn); }
+  .toast { position:fixed; top:20px; right:20px; background:var(--surface); border:1px solid var(--border); padding:10px 18px; border-radius:var(--radius-sm); font-size:13px; z-index:1000; box-shadow:0 4px 16px rgba(0,0,0,0.08); animation:slideIn 0.3s ease; }
+  @keyframes slideIn { from { transform:translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }
+
+  .llm-event { background:var(--surface2); border:1px solid var(--hair); border-radius:var(--radius-sm); padding:12px; margin-bottom:10px; }
+  .llm-event-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
   .llm-event-header .time { color:var(--accent); font-family:monospace; font-size:12px; }
   .llm-event-header .activity { font-weight:600; font-size:13px; flex:1; }
-  .llm-event-header .badge { flex-shrink:0; }
-  .llm-raw { font-family:'Cascadia Code','Fira Code',monospace; font-size:11px; line-height:1.5; background:rgba(0,0,0,0.3); border-radius:6px; padding:12px; white-space:pre-wrap; word-break:break-word; max-height:300px; overflow-y:auto; color:#c0c0c0; }
-  .llm-no-data { text-align:center; color:var(--text2); padding:20px; font-size:13px; }
-  .llm-meta { display:flex; gap:10px; font-size:10px; color:var(--text2); margin-bottom:8px; flex-wrap:wrap; }
+  .llm-raw { font-family:'Cascadia Code','Fira Code',monospace; font-size:11px; line-height:1.5; background:var(--surface2); border-radius:6px; padding:10px; white-space:pre-wrap; word-break:break-word; max-height:300px; overflow-y:auto; color:var(--text2); }
+  .llm-no-data { text-align:center; color:var(--faint); padding:20px; font-size:13px; }
+  .llm-meta { font-size:11px; color:var(--faint); margin-bottom:6px; }
+  ::-webkit-scrollbar { width:5px; } ::-webkit-scrollbar-track { background:transparent; } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
 </style>
 </head>
 <body>
 <div class="header">
-  <h1>📊 Work Reporter 仪表盘</h1>
-  <div class="subtitle" id="statusText">加载中...</div>
+  <div><h1>Work Reporter</h1><div class="subtitle" id="statusText">加载中...</div></div>
+  <div class="actions" style="margin-bottom:0;">
+    <button class="btn" onclick="apiPost('/api/capture')">📸 截屏</button>
+    <button class="btn" onclick="apiPost('/api/pause')">⏯ 暂停</button>
+  </div>
 </div>
 <div class="container">
-  <div class="stats-grid">
-    <div class="stat-card"><div class="label">📸 今日截图</div><div class="value accent" id="ssCount">-</div></div>
-    <div class="stat-card"><div class="label">📝 今日事件</div><div class="value accent" id="evtCount">-</div></div>
-    <div class="stat-card"><div class="label">🛡 隐私过滤</div><div class="value success" id="privSkip">-</div></div>
-    <div class="stat-card"><div class="label">⏯ 截屏状态</div><div class="value warn" id="pauseStatus">-</div></div>
-    <div class="stat-card"><div class="label">📋 日报</div><div class="value" id="dailyStatus" style="font-size:16px;">-</div></div>
+  <div class="stats-bar">
+    <div class="stat"><div class="label">今日截图</div><div class="value" style="color:var(--accent)" id="ssCount">-</div></div>
+    <div class="stat"><div class="label">今日事件</div><div class="value" style="color:var(--cat-code)" id="evtCount">-</div></div>
+    <div class="stat"><div class="label">隐私过滤</div><div class="value" style="color:var(--success)" id="privSkip">-</div></div>
+    <div class="stat"><div class="label">截屏状态</div><div class="value" style="color:var(--warn);font-size:14px" id="pauseStatus">-</div></div>
+    <div class="stat"><div class="label">日报</div><div class="value" style="font-size:14px" id="dailyStatus">-</div></div>
   </div>
 
-  <div class="actions">
-    <button class="btn btn-primary" onclick="apiPost('/api/capture')">📸 截屏</button>
-    <button class="btn btn-warn" onclick="apiPost('/api/pause')">⏯ 暂停</button>
-    <button class="btn btn-success" onclick="apiPost('/api/report/daily')">📄 日报</button>
-    <button class="btn btn-secondary" onclick="apiPost('/api/report/weekly')">📊 周报</button>
-    <button class="btn btn-secondary" onclick="window.open('/reports')">📁 报告</button>
-  </div>
-
-  <div class="section" style="margin-bottom:24px;">
-    <div class="tab-bar">
-      <button class="tab-btn active" onclick="switchTab('timeline')" id="tab-timeline">🕐 活动时间线</button>
-      <button class="tab-btn" onclick="switchTab('llm')" id="tab-llm">🤖 LLM 原始输出</button>
+  <div class="main-grid">
+    <div class="left-col">
+      <div class="panel">
+        <div class="tab-bar">
+          <button class="tab-btn active" onclick="switchTab('timeline')" id="tab-timeline">活动时间线</button>
+          <button class="tab-btn" onclick="switchTab('llm')" id="tab-llm">LLM 原始输出</button>
+        </div>
+        <div class="heatmap-container" id="heatmapBar"></div>
+        <div class="timeline" id="eventList"><div class="empty">暂无今日事件，按 <kbd>%HOTKEY%</kbd> 开始截屏</div></div>
+        <div id="llmPanel" style="display:none;"><div class="llm-no-data">加载中...</div></div>
+      </div>
     </div>
-    <div class="heatmap-container" id="heatmapBar"></div>
-    <div class="timeline" id="eventList"><div class="empty">暂无今日事件，按 <kbd>%HOTKEY%</kbd> 开始截屏</div></div>
-    <div id="llmPanel" style="display:none;"><div class="llm-no-data">加载中...</div></div>
-  </div>
 
-  <div class="section">
-    <h2>📋 最近报告</h2>
-    <div id="recentReports" style="font-size:13px;"><div class="empty">暂无报告</div></div>
+    <div class="right-col">
+      <div class="panel report-panel">
+        <div class="report-header">
+          <h2>📋 今日报告</h2>
+          <button class="btn btn-accent btn-sm" onclick="generateReport()">生成日报</button>
+        </div>
+        <div id="reportContent" class="report-body">
+          <div class="empty-state">点击「生成日报」创建今天的工作报告</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -362,6 +389,62 @@ function switchTab(tab) {
   }
 }
 
+function renderMarkdown(md) {
+  if (!md) return '<div class="empty-state">暂无内容</div>';
+  // Escape HTML first
+  md = md.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Headers
+  md = md.replace(/^### (.+)$/gm,'<h3>$1</h3>');
+  md = md.replace(/^## (.+)$/gm,'<h2>$1</h2>');
+  md = md.replace(/^# (.+)$/gm,'<h1>$1</h1>');
+  // Bold / italic
+  md = md.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  md = md.replace(/\*(.+?)\*/g,'<em>$1</em>');
+  // Inline code
+  md = md.replace(/`([^`]+)`/g,'<code>$1</code>');
+  // Horizontal rule
+  md = md.replace(/^---$/gm,'<hr>');
+  // Tables (simple: header row + separator row + data rows)
+  md = md.replace(/(^\|.+\|$\n^\|[-| :]+\|$\n(?:^\|.+\|$\n?)*)/gm, function(m){
+    var rows = m.trim().split('\n');
+    var html = '<table>';
+    rows.forEach(function(row,i){
+      if (i===1) return; // skip separator
+      var cells = row.replace(/^\||\|$/g,'').split('|');
+      var tag = i===0 ? 'th' : 'td';
+      html += '<tr>'+cells.map(function(c){return '<'+tag+'>'+c.trim()+'</'+tag+'>'}).join('')+'</tr>';
+    });
+    return html+'</table>';
+  });
+  // Unordered lists
+  md = md.replace(/((?:^- .+$\n?)+)/gm, function(m){
+    return '<ul>'+m.trim().split('\n').map(function(l){return '<li>'+l.replace(/^- /,'')+'</li>'}).join('')+'</ul>';
+  });
+  // Paragraphs: blank-line-separated blocks
+  var blocks = md.split(/\n\n+/);
+  return blocks.map(function(b){
+    b = b.trim(); if (!b) return '';
+    if (/^<(h[1-3]|table|ul|ol|hr)/.test(b)) return b;
+    return '<p>'+b.replace(/\n/g,'<br>')+'</p>';
+  }).join('\n');
+}
+
+async function generateReport() {
+  $('reportContent').innerHTML = '<div class="empty-state" style="color:var(--accent)">生成中...</div>';
+  try {
+    var r = await fetch(API+'/report/daily', {method:'POST'});
+    var d = await r.json();
+    if (d.success && d.content) {
+      $('reportContent').innerHTML = renderMarkdown(d.content);
+      $('dailyStatus').textContent = '✅ 已生成';
+    } else {
+      $('reportContent').innerHTML = '<div class="empty-state">生成失败: '+(d.message||'未知错误')+'</div>';
+    }
+  } catch(e) {
+    $('reportContent').innerHTML = '<div class="empty-state">请求失败: '+e.message+'</div>';
+  }
+}
+
 function renderLLMOutput(events) {
   llmEventsCache = events;
   if (currentTab !== 'llm') return;
@@ -421,13 +504,11 @@ async function refresh() {
       $('eventList').innerHTML = '<div class="empty">暂无今日事件，按快捷键开始截屏 📸</div>';
     }
 
-    var reports = await fetchJSON(API+'/reports');
-    if (reports.length > 0) {
-      $('recentReports').innerHTML = reports.slice(0,5).map(function(r) {
-        return '<div style="padding:6px 0;border-bottom:1px solid var(--border);">'+
-          '<a href="/reports/'+r.type+'/'+r.filename+'" style="color:var(--accent);text-decoration:none;">📄 '+r.filename+'</a>'+
-          '<span style="color:var(--text2);font-size:11px;margin-left:12px;">'+ (r.mtime||'') +'</span></div>';
-      }).join('');
+    // 加载已有日报
+    if (status.has_daily_report && $('reportContent').querySelector('.empty-state')) {
+      fetchJSON(API+'/report/daily/today').then(function(d){
+        if (d.content) $('reportContent').innerHTML = renderMarkdown(d.content);
+      }).catch(function(){});
     }
 
     // 预加载 LLM 原始输出数据
@@ -494,6 +575,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "/api/events/today": self._api_events_today,
             "/api/events/today/llm": self._api_events_today_llm,
             "/api/events/recent": self._api_events_recent,
+            "/api/report/daily/today": self._api_report_today,
             "/api/stats": self._api_stats,
             "/api/reports": self._api_reports,
         }
@@ -721,6 +803,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send_json({"error": str(e)}, 500)
 
+    def _api_report_today(self) -> None:
+        """返回今日已有日报内容."""
+        app = self.app_ref
+        if not app:
+            self._send_json({"error": "App not ready"}, 503)
+            return
+        today = date.today()
+        report = app.store.get_daily_report(today)
+        if report:
+            self._send_json({"content": report.get("content", "")})
+        else:
+            self._send_json({"content": ""})
+
     def _api_report_daily(self) -> None:
         app = self.app_ref
         if not app:
@@ -731,7 +826,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({
                 "success": True,
                 "message": "日报生成完成",
-                "preview": content[:300] + "..." if len(content) > 300 else content,
+                "content": content,
             })
         except Exception as e:
             self._send_json({"success": False, "message": str(e)}, 500)

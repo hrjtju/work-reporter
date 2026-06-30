@@ -188,8 +188,45 @@ class WorkReporterApp:
         )
         self.logger.info("✅ 工作记忆已就绪")
 
+        # GPU 监控 — 高负载时自动切换小模型
+        self._gpu_monitor_stop = threading.Event()
+        self._gpu_monitor_thread: threading.Thread | None = None
+        self._start_gpu_monitor()
+
         self.logger.info("所有模块初始化完成")
         self._print_startup_info()
+
+    def _start_gpu_monitor(self) -> None:
+        """启动 GPU 利用率监控线程，高负载时切换模型."""
+        import subprocess
+        import re as _re
+
+        def _monitor():
+            while not self._gpu_monitor_stop.wait(30):  # 每30秒检查
+                try:
+                    result = subprocess.run(
+                        ["nvidia-smi", "--query-gpu=utilization.gpu",
+                         "--format=csv,noheader,nounits"],
+                        capture_output=True, text=True, timeout=10,
+                    )
+                    if result.returncode != 0:
+                        continue
+                    gpu_pct = int(_re.search(r"\d+", result.stdout).group())
+                    if gpu_pct > 50:
+                        if self.text_llm and self.text_llm.model_name != "gemma4:e2b":
+                            self.text_llm.switch_model("gemma4:e2b")
+                            self.logger.info("⚠ GPU %d%% > 50%%, 文本 LLM 降级为 gemma4:e2b", gpu_pct)
+                    else:
+                        if self.text_llm and self.text_llm.model_name != "gemma4:12b":
+                            self.text_llm.switch_model("gemma4:12b")
+                            self.logger.info("GPU %d%% ≤ 50%%, 文本 LLM 恢复为 gemma4:12b", gpu_pct)
+                except Exception:
+                    pass  # nvidia-smi 不可用时静默忽略
+
+        self._gpu_monitor_thread = threading.Thread(
+            target=_monitor, daemon=True, name="gpu-monitor",
+        )
+        self._gpu_monitor_thread.start()
 
     # ── 单实例锁 ──────────────────────────────────────
 
@@ -465,6 +502,7 @@ class WorkReporterApp:
     def shutdown(self) -> None:
         """安全关闭所有服务."""
         self.logger.info("正在关闭...")
+        self._gpu_monitor_stop.set()
         self.screenshot_capture.stop()
         self.scheduler.stop()
         self.web_dashboard.stop()

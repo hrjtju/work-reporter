@@ -100,56 +100,39 @@ USER_CONTEXT_TEMPLATE = """应用: {app_name} | 窗口: {window_title} | 时间:
 # 日报生成 prompt
 
 # 日报生成 prompt
-DAILY_REPORT_PROMPT = """你是一个专业的工作报告撰写助手。以下是用户今天的工作活动记录：
+DAILY_REPORT_PROMPT = """你是工作日报撰写助手。根据以下活动记录生成 Markdown 日报。
 
-日期：{date}
-总事件数：{event_count}
-有效截图：{screenshot_count}
+日期：{date} | 事件数：{event_count} | 截图：{screenshot_count}
 
-活动时间线：
+活动记录：
 {events}
 
-请根据以上记录生成一份简洁专业的日报，以 JSON 格式返回：
-
-```json
-{{
-  "content": "完整的日报内容（Markdown 格式）",
-  "summary": "一句话总结今天的工作（30字以内）",
-  "tomorrow_plan": "根据今日进展推断的明日计划"
-}}
-```
-
 要求：
-- 按项目分组组织内容
-- 突出关键成果和进展
-- 语气专业但不过于正式
-- 如果有明显的中断/切换模式，可以提及"""
+- 直接输出 Markdown（不要 JSON 外壳，不要 markdown 代码围栏）
+- # 标题为日期
+- ## 今日工作摘要 — 一段话概括
+- ## 工作内容 — 按项目分组的详细记录
+- ## 时间分布 — 类别占比表格
+- ## 备注 — 如有中断/切换模式可提及"""
 
-# 周报生成 prompt
-WEEKLY_REPORT_PROMPT = """你是一个专业的工作报告撰写助手。以下是用户本周的工作数据汇总：
+WEEKLY_REPORT_PROMPT = """你是工作周报撰写助手。根据以下数据生成 Markdown 周报。
 
-周期：{week_start} ~ {week_end}
-总事件数：{total_events}
+周期：{week_start} ~ {week_end} | 事件数：{total_events}
 
-每日日报摘要：
+日报摘要：
 {daily_summaries}
 
-类别分布：
-{category_distribution}
+类别分布：{category_distribution}
+项目分布：{project_distribution}
 
-项目分布：
-{project_distribution}
-
-请根据以上数据生成一份专业的周报，以 JSON 格式返回：
-
-```json
-{{
-  "content": "完整的周报内容（Markdown 格式）",
-  "summary": "一周工作总结（50字以内）",
-  "key_achievements": ["成果1", "成果2", "成果3"],
-  "next_week_plan": "下周计划建议"
-}}
-```"""
+要求：
+- 直接输出 Markdown（不要 JSON 外壳，不要 markdown 代码围栏）
+- # 标题为周期
+- ## 本周总结
+- ## 关键成果（列表）
+- ## 类别分布（表格）
+- ## 项目分布
+- ## 下周计划建议"""
 
 
 # ── 视觉分析器 ──────────────────────────────────────────
@@ -190,6 +173,12 @@ class VisionAnalyzer:
         # 统计
         self.call_count: int = 0
         self.error_count: int = 0
+
+    def switch_model(self, model_name: str) -> None:
+        """切换模型（用于 GPU 负载过高时降级）."""
+        if model_name != self.model_name:
+            logger.info("切换模型: %s -> %s", self.model_name, model_name)
+            self.model_name = model_name
 
     # ── 核心方法：截图分析 ────────────────────────────
 
@@ -364,7 +353,14 @@ class VisionAnalyzer:
 
         try:
             response = self._text_completion(prompt)
-            result = self._parse_report_response(response, "daily")
+            # Markdown 验证：如果不是有效 markdown，重试
+            md = self._validate_markdown(response)
+            if md is None:
+                logger.warning("日报生成返回非 markdown，重试...")
+                retry_prompt = prompt + "\n\n上一次回复不是 Markdown 格式。请直接输出 Markdown 文本，不要 JSON 外壳。"
+                response = self._text_completion(retry_prompt)
+                md = self._validate_markdown(response) or response
+            result = DailyReportResult(content=md, summary="", tomorrow_plan="")
             return result
         except Exception as e:
             logger.error("日报生成失败: %s", e)
@@ -447,6 +443,34 @@ class VisionAnalyzer:
                 if attempt == self.max_retries - 1:
                     raise
         return ""
+
+    @staticmethod
+    def _validate_markdown(text: str) -> str | None:
+        """验证文本是否为有效 markdown，返回清洗后的 markdown 或 None."""
+        if not text or not text.strip():
+            return None
+        t = text.strip()
+        # 如果是 markdown 代码围栏包裹，提取内容
+        if t.startswith("```markdown") or t.startswith("```md"):
+            end = t.rfind("```")
+            if end > 0:
+                t = t[t.index("\n") + 1:end].strip()
+        elif t.startswith("```"):
+            end = t.rfind("```")
+            if end > 3:
+                t = t[3:end].strip()
+        # 检查是否包含 markdown 特征
+        has_md = bool(re.search(r"^#+\s", t, re.MULTILINE)) or "- " in t or "|" in t
+        if not has_md:
+            # 检查是否为 JSON 包裹（旧格式）
+            try:
+                data = json.loads(t)
+                if isinstance(data, dict) and "content" in data:
+                    return data["content"]
+            except (json.JSONDecodeError, KeyError):
+                pass
+            return None
+        return t
 
     def _text_completion(self, prompt: str) -> str:
         """调用纯文本补全."""
