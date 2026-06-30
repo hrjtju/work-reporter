@@ -446,31 +446,34 @@ class VisionAnalyzer:
 
     @staticmethod
     def _validate_markdown(text: str) -> str | None:
-        """验证文本是否为有效 markdown，返回清洗后的 markdown 或 None."""
+        """验证并清洗 LLM 输出，提取纯 markdown。返回 None 表示需要重试."""
         if not text or not text.strip():
             return None
         t = text.strip()
-        # 如果是 markdown 代码围栏包裹，提取内容
-        if t.startswith("```markdown") or t.startswith("```md"):
+        # 1. 剥离 markdown 代码围栏
+        if "```" in t:
+            start = t.find("```")
             end = t.rfind("```")
-            if end > 0:
-                t = t[t.index("\n") + 1:end].strip()
-        elif t.startswith("```"):
-            end = t.rfind("```")
-            if end > 3:
-                t = t[3:end].strip()
-        # 检查是否包含 markdown 特征
-        has_md = bool(re.search(r"^#+\s", t, re.MULTILINE)) or "- " in t or "|" in t
-        if not has_md:
-            # 检查是否为 JSON 包裹（旧格式）
+            if end > start:
+                inner = t[start + 3:end].strip()
+                # 跳过语言标记行 (```json, ```markdown 等)
+                nl = inner.find("\n")
+                if nl > 0 and nl < 20 and not inner[:nl].strip().startswith(("#", "-", "*", "|", ">")):
+                    inner = inner[nl + 1:].strip()
+                t = inner
+        # 2. 优先检测 JSON 包裹（旧格式兼容）
+        if t.startswith("{"):
             try:
                 data = json.loads(t)
                 if isinstance(data, dict) and "content" in data:
                     return data["content"]
             except (json.JSONDecodeError, KeyError):
                 pass
-            return None
-        return t
+        # 3. 检测是否包含 markdown 特征
+        if re.search(r"^#+\s", t, re.MULTILINE) or "- " in t or "|" in t:
+            return t
+        # 4. 无法识别
+        return None
 
     def _text_completion(self, prompt: str) -> str:
         """调用纯文本补全."""
