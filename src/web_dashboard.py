@@ -57,7 +57,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   @media (max-width:860px) { .main-grid { grid-template-columns:1fr; } }
 
   .timeline { } /* no max-height */
-  .event-item { display:flex; align-items:flex-start; gap:10px; padding:9px 12px; border-left:3px solid transparent; margin:1px 0; border-radius:0 8px 8px 0; transition:background 0.12s; }
+  .event-item { display:flex; align-items:flex-start; gap:10px; padding:9px 12px; border-left:5px solid transparent; margin:1px 0; border-radius:0 8px 8px 0; transition:background 0.12s; }
   .event-item:hover { background:var(--surface2); }
   .event-item.cat-code { border-left-color:var(--cat-code); }
   .event-item.cat-doc { border-left-color:var(--cat-doc); }
