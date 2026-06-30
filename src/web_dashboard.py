@@ -88,11 +88,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .badge-misc { background:rgba(80,194,89,0.12); color:var(--cat-misc); }
   .badge-other { background:rgba(212,230,90,0.12); color:var(--cat-other); }
 
-  .heatmap-container { margin-bottom:14px; }
-  .heatmap-legend { display:flex; gap:10px; margin-bottom:8px; font-size:11px; color:var(--text2); flex-wrap:wrap; }
+  .heatmap-container { margin-bottom:14px; display:flex; flex-direction:column; align-items:center; }
+  .heatmap-legend { display:flex; gap:10px; margin-bottom:8px; font-size:11px; color:var(--text2); flex-wrap:wrap; justify-content:center; }
   .heatmap-legend .legend-item { display:flex; align-items:center; gap:4px; }
   .heatmap-legend .legend-swatch { width:10px; height:10px; border-radius:2px; }
-  .heatmap-bars { display:flex; gap:4px; align-items:flex-end; }
+  .heatmap-bars { display:flex; gap:4px; align-items:flex-end; justify-content:center; }
   .heatmap-bar-col { display:flex; flex-direction:column; align-items:center; }
   .heatmap-bar { width:18px; height:120px; display:flex; flex-direction:column-reverse; border-radius:2px; overflow:hidden; outline:1px solid var(--hair); flex-shrink:0; }
   .heatmap-seg { width:100%; flex-shrink:0; transition:opacity 0.2s; }
@@ -350,11 +350,16 @@ function renderHeatmap(events) {
   });
   html += '</div>';
 
-  // 5. 渲染 24 根柱状条
+  // 5. 渲染柱状条：8点→23点→24点(0点)
   html += '<div class="heatmap-bars">';
-  for (var h = 0; h < 24; h++) {
+  var order = [];
+  for (var h = 8; h < 24; h++) order.push(h);
+  order.push(0); // 0点显示为24点，放在最右
+
+  order.forEach(function(h) {
     var totalH = 0;
     for (var c in hourData[h]) { totalH += hourData[h][c]; }
+    var label = h === 0 ? '24' : String(h).padStart(2, '0');
 
     html += '<div class="heatmap-bar-col">';
     html += '<div class="heatmap-bar">';
@@ -364,16 +369,16 @@ function renderHeatmap(events) {
         var mins = hourData[h][cat] || 0;
         if (mins > 0) {
           var segH = Math.max(MIN_SEG_H, Math.round((mins / maxTotal) * MAX_BAR_H));
-          var tip = String(h).padStart(2, '0') + ':00 — ' + cat + ': ' + Math.round(mins) + ' 分钟';
+          var tip = (h === 0 ? '24' : String(h).padStart(2, '0')) + ':00 — ' + cat + ': ' + Math.round(mins) + ' 分钟';
           html += '<div class="heatmap-seg" style="height:' + segH + 'px; background:' + getCatColor(cat) + ';" title="' + tip + '"></div>';
         }
       });
     }
 
     html += '</div>';
-    html += '<div class="heatmap-label">' + String(h).padStart(2, '0') + '</div>';
+    html += '<div class="heatmap-label">' + label + '</div>';
     html += '</div>';
-  }
+  });
   html += '</div>';
 
   $('heatmapBar').innerHTML = html;
