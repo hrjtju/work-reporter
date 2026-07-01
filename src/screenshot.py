@@ -371,7 +371,7 @@ class ScreenshotCapture:
 
         # 清理超过 3 天前的计数 key，防止无限增长
         stale = [k for k in self._today_count if k < date_str]
-        if len(stale) > 7:
+        if stale:
             for k in stale:
                 del self._today_count[k]
 
