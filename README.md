@@ -4,13 +4,14 @@
 
 ## 功能
 
-- **自动截屏**：可配间隔（默认 10 分钟），多显示器，感知哈希去重，隐私跳过 2 分钟后自动重试
-- **隐私保护**：三层过滤 — 应用黑名单 → 区域模糊 → OCR 敏感内容检测
-- **VLM 分析**：Ollama 本地视觉模型 + system prompt + JSON 校验重试，大图自动 2×2 切分
+- **自动截屏**：可配间隔（默认 2 分钟），多显示器，感知哈希去重
+- **VLM 手动模式**：支持截图后不自动分析，改为手动点击「⚡ 分析」批量处理
+- **隐私保护**：三层过滤 — 应用黑名单 → 区域模糊 → OCR 敏感内容检测；自动模式下触发隐私的截图直接删除不留痕迹
+- **异步队列**：VLM 分析全异步执行，不阻塞截图流程
 - **工作记忆**：增量积累上下文，每 N 个事件 LLM 总结，注入后续分析 prompt
 - **智能报告**：每日 18:00 / 周五 18:30 生成 Markdown 报告，LLM 优先 + 模板兜底
-- **系统托盘**：右键菜单（截屏/暂停/自动/日报/周报），气泡通知，图标状态切换
-- **Web 仪表盘**：`localhost:8765` 浅色主题，双栏布局，时间线 + 热力图 + LLM 输出 + Markdown 报告渲染
+- **系统托盘**：右键菜单（截屏/暂停/自动/VLM 模式/日报/周报），气泡通知，图标状态切换
+- **Web 仪表盘**：`localhost:8765` 浅色主题，双栏布局，时间线 + 热力图 + LLM 输出 + 日志 Tab + Markdown 报告渲染
 - **GPU 监控**：后台检测 GPU 利用率，>50% 自动切换文本 LLM 到小模型
 
 ## 快速开始
@@ -32,7 +33,8 @@ uv run python main.py          # 启动
 screenshot:
   hotkey: "ctrl+shift+alt+s"
   pause_hotkey: "ctrl+shift+o"
-  auto_interval_minutes: 10
+  auto_interval_minutes: 2
+  vlm_auto: true  # true=自动 VLM 分析，false=手动点「⚡ 分析」
 
 vision_llm:
   base_url: "http://localhost:11434/v1"
@@ -77,11 +79,12 @@ work-reporter/
 ├── main.py                 # 入口，模块编排，GPU 监控
 ├── config.yaml             # 用户配置
 ├── src/
-│   ├── screenshot.py       # 截屏、去重、热键、隐私重试
+│   ├── screenshot.py       # 截屏、去重、热键
 │   ├── privacy_filter.py   # 三层隐私过滤
 │   ├── vision_analyzer.py  # VLM 客户端、system prompt、图像切分、JSON/MD 校验
 │   ├── work_memory.py      # 增量工作记忆
 │   ├── event_store.py      # SQLite 存储（WAL，线程安全）
+│   ├── vlm_queue.py        # VLM 异步任务队列（生产者/消费者）
 │   ├── report_generator.py # 日报/周报生成（LLM + 模板兜底）
 │   ├── scheduler.py        # APScheduler 定时任务
 │   ├── tray_app.py         # 系统托盘菜单
@@ -89,6 +92,7 @@ work-reporter/
 │   └── config_loader.py    # 配置加载、校验、默认值合并
 ├── data/
 │   ├── work_reporter.db    # SQLite
+│   ├── work_reporter.log   # 运行日志
 │   └── screenshots/        # 截图存档
 └── reports/
     ├── daily/              # 日报 .md
