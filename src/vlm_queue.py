@@ -75,7 +75,6 @@ class VlmTaskQueue:
         tasks: list[VlmTask],
         store,
         vision_llm,
-        privacy,
         work_memory,
     ) -> dict:
         """手动处理所有待处理任务，返回统计结果."""

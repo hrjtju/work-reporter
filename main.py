@@ -424,7 +424,7 @@ class WorkReporterApp:
             for r in rows
         ]
         return self.vlm_queue.process_pending(
-            tasks, self.store, self.vision_llm, self.privacy, self.work_memory,
+            tasks, self.store, self.vision_llm, self.work_memory,
         )
 
     def _manual_daily_report(self) -> str:
