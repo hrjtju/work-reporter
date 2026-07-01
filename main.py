@@ -541,7 +541,7 @@ class WorkReporterApp:
             self.text_llm.close()
         self.store.close()
         self._release_lock()
-        # 启动新进程
+        # 启动新进程，然后当前进程退出
         import subprocess, sys
         subprocess.Popen(
             [sys.executable, str(self.project_root / "main.py")],
@@ -550,6 +550,7 @@ class WorkReporterApp:
             start_new_session=True,
         )
         self.logger.info("Work Reporter 正在重启...")
+        sys.exit(0)  # 退出当前进程，让新进程接管
 
     def _on_notify(self, title: str, message: str) -> None:
         """发送系统通知（通过托盘气泡）."""
