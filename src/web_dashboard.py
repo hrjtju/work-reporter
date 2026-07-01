@@ -159,7 +159,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     <button class="btn" onclick="apiPost('/api/capture')">📸 截屏</button>
     <button class="btn" onclick="apiPost('/api/pause')">⏯ 暂停</button>
     <button class="btn" id="btnAuto" onclick="toggleAuto()">🔄 自动</button>
-    <button class="btn" id="btnVlmAuto" onclick="toggleVlmAuto()">🤖 VLM</button>
+    <button class="btn btn-accent" id="btnVlmAuto" onclick="toggleVlmAuto()">🤖 自动</button>
     <button class="btn btn-accent" id="btnVlmProcess" style="display:none" onclick="apiPost('/api/vlm-process')">⚡ 分析</button>
   </div>
 </div>
