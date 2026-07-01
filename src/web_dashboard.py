@@ -139,6 +139,15 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .llm-raw { font-family:'Cascadia Code','Fira Code',monospace; font-size:11px; line-height:1.5; background:var(--surface2); border-radius:6px; padding:10px; white-space:pre-wrap; word-break:break-word; max-height:300px; overflow-y:auto; color:var(--text2); }
   .llm-no-data { text-align:center; color:var(--faint); padding:20px; font-size:13px; }
   .llm-meta { font-size:11px; color:var(--faint); margin-bottom:6px; }
+  .log-panel { max-height:600px; overflow-y:auto; padding:4px 0; }
+  .log-entry { display:flex; gap:8px; padding:3px 12px; font-size:11px; font-family:monospace; line-height:1.5; border-radius:3px; }
+  .log-entry:hover { background:var(--surface2); }
+  .log-time { color:var(--faint); flex-shrink:0; }
+  .log-level { flex-shrink:0; font-weight:700; }
+  .log-level-info { color:var(--text2); }
+  .log-level-warn { color:#c4982f; }
+  .log-level-error { color:#bb5440; }
+  .log-msg { color:var(--text); word-break:break-word; }
   ::-webkit-scrollbar { width:5px; } ::-webkit-scrollbar-track { background:transparent; } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
 </style>
 </head>
@@ -149,6 +158,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     <button class="btn" onclick="apiPost('/api/capture')">📸 截屏</button>
     <button class="btn" onclick="apiPost('/api/pause')">⏯ 暂停</button>
     <button class="btn" id="btnAuto" onclick="toggleAuto()">🔄 自动</button>
+    <button class="btn" id="btnVlmAuto" onclick="toggleVlmAuto()">🤖 VLM</button>
+    <button class="btn btn-accent" id="btnVlmProcess" style="display:none" onclick="apiPost('/api/vlm-process')">⚡ 分析</button>
   </div>
 </div>
 <div class="container">
@@ -158,6 +169,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     <div class="stat"><div class="label">隐私过滤</div><div class="value" style="color:var(--success)" id="privSkip">-</div></div>
     <div class="stat"><div class="label">截屏状态</div><div class="value" style="color:var(--warn);font-size:14px" id="pauseStatus">-</div></div>
     <div class="stat"><div class="label">日报</div><div class="value" style="font-size:14px" id="dailyStatus">-</div></div>
+    <div class="stat"><div class="label">VLM</div><div class="value" style="font-size:14px" id="vlmStatus">-</div></div>
   </div>
 
   <div class="main-grid">
@@ -166,10 +178,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         <div class="tab-bar">
           <button class="tab-btn active" onclick="switchTab('timeline')" id="tab-timeline">活动时间线</button>
           <button class="tab-btn" onclick="switchTab('llm')" id="tab-llm">LLM 原始输出</button>
+          <button class="tab-btn" onclick="switchTab('log')" id="tab-log">日志</button>
         </div>
         <div class="heatmap-container" id="heatmapBar"></div>
         <div class="timeline" id="eventList"><div class="empty">暂无今日事件，按 <kbd>%HOTKEY%</kbd> 开始截屏</div></div>
         <div id="llmPanel" style="display:none;"><div class="llm-no-data">加载中...</div></div>
+        <div id="logPanel" style="display:none;"><div class="llm-no-data">加载中...</div></div>
       </div>
     </div>
 
@@ -395,12 +409,20 @@ function switchTab(tab) {
   if (tab === 'timeline') {
     $('eventList').style.display = '';
     $('llmPanel').style.display = 'none';
+    $('logPanel').style.display = 'none';
     $('heatmapBar').style.display = '';
-  } else {
+  } else if (tab === 'llm') {
     $('eventList').style.display = 'none';
     $('llmPanel').style.display = '';
+    $('logPanel').style.display = 'none';
     $('heatmapBar').style.display = 'none';
     if (llmEventsCache.length > 0) renderLLMOutput(llmEventsCache);
+  } else if (tab === 'log') {
+    $('eventList').style.display = 'none';
+    $('llmPanel').style.display = 'none';
+    $('logPanel').style.display = '';
+    $('heatmapBar').style.display = 'none';
+    loadLogs();
   }
 }
 
@@ -499,6 +521,55 @@ function renderLLMOutput(events) {
   $('llmPanel').innerHTML = html || '<div class="llm-no-data">暂无 LLM 分析数据</div>';
 }
 
+var logCache = [];
+
+function loadLogs() {
+  fetchJSON(API+'/logs').then(function(data) {
+    logCache = data.logs || [];
+    renderLogs();
+  }).catch(function() {});
+}
+
+function renderLogs() {
+  if (!logCache.length) {
+    $('logPanel').innerHTML = '<div class="llm-no-data">暂无日志</div>';
+    return;
+  }
+  var html = '<div class="log-panel">';
+  logCache.forEach(function(e) {
+    var lvl = e.level || 'INFO';
+    var lvlClass = 'log-level log-level-' + lvl.toLowerCase();
+    html += '<div class="log-entry">';
+    html += '<span class="log-time">'+escHtml(e.time||'')+'</span>';
+    html += '<span class="'+lvlClass+'">'+lvl+'</span>';
+    html += '<span class="log-msg">'+escHtml(e.message||'')+'</span>';
+    html += '</div>';
+  });
+  html += '</div>';
+  $('logPanel').innerHTML = html;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function toggleVlmAuto() {
+  var status = $('vlmStatus').textContent;
+  var enable = status.indexOf('自动') < 0;  // 当前不是自动则开启
+  fetch(API+'/api/vlm-auto', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({enabled: enable}),
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.success !== false) {
+      showToast(enable ? 'VLM 已切换为自动模式' : 'VLM 已切换为手动模式');
+      refresh();
+    } else {
+      showToast(d.error || '操作失败');
+    }
+  }).catch(function(e){ showToast('Error: '+e.message); });
+}
+
 async function refresh() {
   try {
     var status = await fetchJSON(API+'/status');
@@ -513,6 +584,18 @@ async function refresh() {
       ba.className = status.is_auto ? 'btn btn-accent' : 'btn';
     }
     $('dailyStatus').textContent = status.has_daily_report ? '✅ 已生成' : '⏳ 未生成';
+
+    // VLM 模式状态
+    var vlmAuto = status.vlm_auto;
+    $('vlmStatus').textContent = vlmAuto ? '🤖 自动' : '⏸ 手动';
+    $('vlmStatus').style.color = vlmAuto ? 'var(--success)' : 'var(--warn)';
+    var bv = $('btnVlmAuto');
+    if (bv) {
+      bv.textContent = vlmAuto ? '🤖 自动' : '🤖 手动';
+      bv.className = vlmAuto ? 'btn btn-accent' : 'btn';
+    }
+    var bp = $('btnVlmProcess');
+    if (bp) bp.style.display = vlmAuto ? 'none' : '';
 
     var events = await fetchJSON(API+'/events/today');
     renderHeatmap(events);
@@ -623,6 +706,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "/api/capture": self._api_capture,
             "/api/pause": self._api_pause,
             "/api/toggle-auto": self._api_toggle_auto,
+            "/api/vlm-process": self._api_vlm_process,
+            "/api/vlm-auto": self._api_vlm_auto,
+            "/api/logs": self._api_logs,
             "/api/report/daily": self._api_report_daily,
             "/api/report/weekly": self._api_report_weekly,
         }
@@ -683,6 +769,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "is_auto": app.screenshot_capture.is_auto,
             "capture_mode": app.screenshot_capture.capture_mode,
             "auto_interval": app.config["screenshot"]["auto_interval_minutes"],
+            "vlm_auto": app._vlm_auto,
             "today_screenshots": app.store.get_screenshot_count_for_date(today),
             "today_events": len(app.store.get_today_events()),
             "privacy_skips": app.privacy.get_stats()["skip_count"],
@@ -695,6 +782,76 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 for k, v in app.scheduler.get_next_report_times().items()
             },
         })
+
+    def _api_logs(self) -> None:
+        """返回最近的日志条目."""
+        app = self.app_ref
+        if not app:
+            self._send_json({"logs": []})
+            return
+        # 读取日志文件末尾
+        log_path = app.project_root / "data" / "work_reporter.log"
+        limit = 100
+        try:
+            if log_path.exists():
+                lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+                # 每行格式: "HH:MM:SS [LEVEL] name: message"
+                entries = []
+                for raw in lines[-limit:]:
+                    parts = raw.split("]", 1)
+                    if len(parts) < 2:
+                        continue
+                    time_part = parts[0].lstrip("[")
+                    rest = parts[1].strip()
+                    level_start = rest.find("[")
+                    level_end = rest.find("]", level_start + 1) if level_start >= 0 else -1
+                    if level_start >= 0 and level_end > level_start:
+                        level = rest[level_start + 1:level_end]
+                        msg = rest[level_end + 1:].lstrip(": ").strip()
+                    else:
+                        level = "INFO"
+                        msg = rest
+                    entries.append({"time": time_part, "level": level, "message": msg})
+                self._send_json({"logs": entries[-limit:]})
+            else:
+                self._send_json({"logs": []})
+        except Exception:
+            self._send_json({"logs": []})
+
+    def _api_vlm_process(self) -> None:
+        """手动触发 VLM 批量处理."""
+        app = self.app_ref
+        if not app:
+            self._send_json({"error": "App not ready"}, 503)
+            return
+        if app._vlm_auto:
+            self._send_json({"error": "VLM 已是自动模式，无需手动处理"}, 400)
+            return
+        try:
+            result = app._process_manual_vlm_batch()
+            result["success"] = True
+            self._send_json(result)
+        except Exception as e:
+            self._send_json({"success": False, "message": str(e)}, 500)
+
+    def _api_vlm_auto(self) -> None:
+        """切换 VLM 自动模式."""
+        app = self.app_ref
+        if not app:
+            self._send_json({"error": "App not ready"}, 503)
+            return
+        try:
+            body = json.loads(self._read_body())
+            enabled = bool(body.get("enabled", True))
+            if app._vlm_auto != enabled:
+                app._vlm_auto = enabled
+                if enabled:
+                    app.vlm_queue.start(workers=2)
+                else:
+                    app.vlm_queue.stop()
+            self._send_json({"success": True, "vlm_auto": app._vlm_auto})
+        except Exception as e:
+            self._send_json({"success": False, "message": str(e)}, 500)
 
     def _api_events_today(self) -> None:
         app = self.app_ref
