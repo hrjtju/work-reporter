@@ -29,6 +29,7 @@ from src.tray_app import TrayApp
 from src.web_dashboard import WebDashboard
 from src.vision_analyzer import VisionAnalyzer
 from src.work_memory import WorkMemory
+from src.vlm_queue import VlmTaskQueue, VlmTask
 
 # ── 日志配置 ─────────────────────────────────────────────
 
@@ -128,11 +129,13 @@ class WorkReporterApp:
                 "screenshot": self._manual_screenshot,
                 "toggle_pause": self._toggle_pause,
                 "toggle_auto": self._toggle_auto,
+                "toggle_vlm_auto": self._toggle_vlm_auto,
                 "generate_daily": self._manual_daily_report,
                 "generate_weekly": self._manual_weekly_report,
                 "get_status": self._get_status_text,
                 "is_paused": lambda: self.screenshot_capture.is_paused,
                 "is_auto": lambda: self.screenshot_capture.is_auto,
+                "is_vlm_auto": lambda: self._vlm_auto,
                 "open_dashboard": self._open_dashboard,
                 "exit": self.shutdown,
             },
@@ -188,6 +191,15 @@ class WorkReporterApp:
             llm=self.text_llm or self.vision_llm,
         )
         self.logger.info("✅ 工作记忆已就绪")
+
+        # VLM 任务队列（生产者/消费者）
+        self._vlm_auto = self.config.get("screenshot", {}).get("vlm_auto", True)
+        self.vlm_queue = VlmTaskQueue()
+        if self._vlm_auto:
+            self.vlm_queue.start(workers=2)
+            self.logger.info("✅ VLM 队列已启动（自动模式）")
+        else:
+            self.logger.info("✅ VLM 队列已就绪（手动模式）")
 
         # GPU 监控 — 高负载时自动切换小模型
         self._gpu_monitor_stop = threading.Event()
@@ -261,25 +273,12 @@ class WorkReporterApp:
             pass
 
     def _on_screenshot_captured(self, result: ScreenshotResult) -> None:
-        """截屏完成后的处理管线."""
+        """截屏完成后的处理管线 — 隐私检查后入队，异步处理."""
         try:
-            # 记录截图到数据库
-            ss_id = self.store.insert_screenshot(
-                timestamp=result.timestamp,
-                file_path=result.file_path,
-                phash=result.phash,
-                app_name=result.app_name,
-                window_title=result.window_title,
-                screen_index=result.screen_index,
-                is_duplicate=result.is_duplicate,
-                skipped=result.skipped,
-                skip_reason=result.skip_reason,
-            )
-
             if result.skipped:
-                return
+                return  # 去重截图直接跳过
 
-            # 隐私过滤
+            # 隐私过滤（先于 DB 插入）
             privacy_result = self.privacy.process(
                 image_path=result.file_path,
                 app_name=result.app_name,
@@ -291,86 +290,57 @@ class WorkReporterApp:
                     "截图已跳过 (隐私): %s — %s",
                     result.app_name, privacy_result.skip_reason,
                 )
-                # 自动模式下安排 2 分钟后重试一次
-                self.screenshot_capture.schedule_privacy_retry()
-                return
-
-            # 视觉 LLM 分析截图（注入工作记忆上下文）
-            analysis = None
-            if self.vision_llm is not None:
-                try:
-                    memory_context = self.work_memory.get_context_for_prompt()
-                    analysis = self.vision_llm.analyze_screenshot(
-                        image_path=result.file_path,
+                if self.screenshot_capture.is_auto:
+                    # 自动模式：删除截图，不留痕迹，不重试
+                    try:
+                        os.remove(result.file_path)
+                        self.logger.info("已删除隐私截图: %s", result.file_path)
+                    except Exception:
+                        pass
+                else:
+                    # 手动模式：保留截图记录，标记 skipped
+                    self.store.insert_screenshot(
+                        timestamp=result.timestamp,
+                        file_path=result.file_path,
+                        phash=result.phash,
                         app_name=result.app_name,
                         window_title=result.window_title,
-                        timestamp=result.timestamp,
-                        memory_context=memory_context,
+                        screen_index=result.screen_index,
+                        is_duplicate=False,
+                        skipped=True,
+                        skip_reason=privacy_result.skip_reason,
                     )
-                    self.logger.info(
-                        "🎯 LLM 分析: [%s] %s (置信度: %.0f%%, 阶段: %s)",
-                        analysis.category, analysis.activity,
-                        analysis.confidence * 100, analysis.task_phase,
-                    )
-                except Exception:
-                    self.logger.exception("LLM 分析失败，回退到规则引擎")
+                return
 
-            # 构建事件摘要
-            if analysis and analysis.confidence > 0.3:
-                activity = analysis.activity
-                category = analysis.category
-                detail = analysis.detail
-                project = analysis.project
-                productive = analysis.is_productive
-                technologies = analysis.technologies
-                task_phase = analysis.task_phase
-                context_switch = analysis.context_switch
-                context_note = analysis.context_note
-            else:
-                if analysis:
-                    self.logger.info(
-                        "⚠ LLM 置信度不足 (%.0f%%)，使用规则引擎: %s — %s",
-                        analysis.confidence * 100, result.app_name, result.window_title,
-                    )
-                else:
-                    self.logger.info("⚠ LLM 未启用/不可用，使用规则引擎")
-                activity = self._build_activity_summary(result)
-                category = "未分类"
-                detail = f"应用: {result.app_name}, 窗口: {result.window_title}"
-                project = ""
-                productive = True
-                technologies = []
-                task_phase = ""
-                context_switch = False
-                context_note = ""
-
-            event_id = self.store.insert_work_event(
-                screenshot_id=ss_id,
+            # 插入截图记录
+            ss_id = self.store.insert_screenshot(
                 timestamp=result.timestamp,
-                activity=activity,
-                category=category,
-                detail=detail,
-                project=project,
-                is_productive=productive,
-                technologies=technologies,
-                task_phase=task_phase,
-                context_switch=context_switch,
-                context_note=context_note,
-                raw_response=analysis.raw_response if analysis else "",
+                file_path=result.file_path,
+                phash=result.phash,
+                app_name=result.app_name,
+                window_title=result.window_title,
+                screen_index=result.screen_index,
+                is_duplicate=False,
+                skipped=False,
+                skip_reason="",
             )
 
-            self.logger.info("✅ 事件已记录: [%s] %s", category, activity)
-
-            # 更新工作记忆
-            if self.work_memory is not None:
-                self.work_memory.on_event_analyzed({
-                    "id": event_id,
-                    "timestamp": result.timestamp.isoformat(),
-                    "activity": activity,
-                    "category": category,
-                    "detail": detail,
-                    "project": project,
-                })
+            # 入队，由消费者异步处理
+            memory_context = self.work_memory.get_context_for_prompt() if self.work_memory else ""
+            task = VlmTask(
+                screenshot_id=ss_id,
+                file_path=result.file_path,
+                app_name=result.app_name,
+                window_title=result.window_title,
+                timestamp=result.timestamp,
+                memory_context=memory_context,
+                store=self.store,
+                vision_llm=self.vision_llm,
+                privacy=self.privacy,
+                work_memory=self.work_memory,
+                is_manual=False,
+            )
+            self.vlm_queue.put(task)
 
         except Exception:
             self.logger.exception("处理截图回调失败")
@@ -415,6 +385,42 @@ class WorkReporterApp:
             self.screenshot_capture._stop_auto_capture()
         else:
             self.screenshot_capture._start_auto_capture()
+
+    def _toggle_vlm_auto(self) -> None:
+        """切换 VLM 自动/手动模式."""
+        self._vlm_auto = not self._vlm_auto
+        if self._vlm_auto:
+            self.vlm_queue.start(workers=2)
+            self.logger.info("VLM 已切换为自动模式，队列消费者已启动")
+        else:
+            self.vlm_queue.stop()
+            self.logger.info("VLM 已切换为手动模式")
+
+    def _process_manual_vlm_batch(self) -> dict:
+        """手动触发批量 VLM 处理（手动模式下调用）."""
+        today = date.today()
+        rows = self.store.get_unprocessed_screenshots(today)
+        if not rows:
+            return {"processed": 0, "failed": 0, "message": "无待处理截图"}
+        tasks = [
+            VlmTask(
+                screenshot_id=r["id"],
+                file_path=r["file_path"],
+                app_name=r["app_name"],
+                window_title=r["window_title"],
+                timestamp=datetime.fromisoformat(r["timestamp"]) if isinstance(r["timestamp"], str) else r["timestamp"],
+                memory_context=self.work_memory.get_context_for_prompt() if self.work_memory else "",
+                store=self.store,
+                vision_llm=self.vision_llm,
+                privacy=self.privacy,
+                work_memory=self.work_memory,
+                is_manual=True,
+            )
+            for r in rows
+        ]
+        return self.vlm_queue.process_pending(
+            tasks, self.store, self.vision_llm, self.privacy, self.work_memory,
+        )
 
     def _manual_daily_report(self) -> str:
         """手动生成日报."""
