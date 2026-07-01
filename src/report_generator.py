@@ -340,24 +340,3 @@ class ReportGenerator:
         file_path = self.output_path / report_type / file_name
         file_path.write_text(content, encoding="utf-8")
         return file_path
-
-    def _build_daily_prompt(self, data: DailyReportData) -> str:
-        """构建日报 LLM prompt（预留）."""
-        events_text = "\n".join(
-            f"- [{e.get('timestamp', '')}] {e.get('activity', '')}"
-            f"  ({e.get('category', '')}, {e.get('project', '')})"
-            for e in data.events
-        )
-        return f"""请根据以下工作活动记录生成日报：
-
-日期：{data.report_date}
-有效截图：{data.total_screenshots} 张
-工作事件：
-{events_text or '暂无'}
-
-请以 Markdown 格式输出结构清晰的日报。"""
-
-    def _call_llm(self, prompt: str) -> str:
-        """调用 LLM（预留接口）."""
-        # TODO: 实现 LLM 调用
-        raise NotImplementedError("LLM 接口尚未实现")
