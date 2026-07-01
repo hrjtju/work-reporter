@@ -269,12 +269,27 @@ class WorkMemory:
             logger.exception("保存工作记忆失败")
 
     @staticmethod
+    def _extract_json(text: str) -> str:
+        """从文本中提取 JSON 块."""
+        if "```json" in text:
+            start = text.index("```json") + 7
+            end = text.index("```", start)
+            return text[start:end].strip()
+        if "```" in text:
+            start = text.index("```") + 3
+            end = text.index("```", start)
+            return text[start:end].strip()
+        brace_start = text.find("{")
+        brace_end = text.rfind("}")
+        if brace_start >= 0 and brace_end > brace_start:
+            return text[brace_start:brace_end + 1]
+        return text
+
+    @staticmethod
     def _parse_memory_response(raw: str) -> dict | None:
         """解析 LLM 记忆更新响应."""
         try:
-            # 复用 vision_analyzer 的 JSON 提取逻辑
-            from src.vision_analyzer import _extract_json
-            json_str = _extract_json(raw)
+            json_str = WorkMemory._extract_json(raw)
             return json.loads(json_str)
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             logger.warning("解析记忆响应失败: %s", e)
