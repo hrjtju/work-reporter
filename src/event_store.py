@@ -9,8 +9,6 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-logger = logging.getLogger(__name__)
-
 # ── 数据库 Schema ────────────────────────────────────────
 
 SCHEMA_SQL = """
@@ -120,6 +118,7 @@ class EventStore:
             "ALTER TABLE work_events ADD COLUMN task_phase TEXT DEFAULT ''",
             "ALTER TABLE work_events ADD COLUMN context_switch INTEGER DEFAULT 0",
             "ALTER TABLE work_events ADD COLUMN context_note TEXT DEFAULT ''",
+            "ALTER TABLE screenshots ADD COLUMN vlm_processed INTEGER DEFAULT 0",
         ]
         for sql in migrations:
             try:
@@ -428,6 +427,34 @@ class EventStore:
             conn.commit()
             logger.info("已清理 %d 条旧截图记录 (早于 %s)", count, before_date)
             return count
+
+    def get_unprocessed_screenshots(self, target_date: date) -> list[dict]:
+        """返回指定日期未处理 VLM 的截图（skipped=0 AND vlm_processed=0）."""
+        conn = self._get_conn()
+        rows = conn.execute(
+            """SELECT id, timestamp, file_path, app_name, window_title, screen_index
+               FROM screenshots
+               WHERE date(timestamp) = ?
+                 AND skipped = 0
+                 AND vlm_processed = 0
+               ORDER BY timestamp ASC""",
+            (target_date.isoformat(),),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def mark_screenshots_processed(self, ids: list[int]) -> None:
+        """批量标记截图已处理."""
+        if not ids:
+            return
+        with self._write_lock:
+            conn = self._get_conn()
+            conn.execute(
+                "UPDATE screenshots SET vlm_processed = 1 WHERE id IN ({})".format(
+                    ",".join("?" * len(ids))
+                ),
+                ids,
+            )
+            conn.commit()
 
     def close(self) -> None:
         """关闭当前线程的数据库连接."""
