@@ -31,9 +31,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     --success: #3a7d5a; --warn: #c4982f; --danger: #bb5440;
     --font: 'Inter','Microsoft YaHei','PingFang SC',sans-serif;
     --radius: 14px; --radius-sm: 10px;
-    --cat-code: #7D55BF; --cat-doc: #9C9694; --cat-comm: #CA7646;
-    --cat-browse: #923130; --cat-meeting: #65E3C8; --cat-design: #973594;
-    --cat-learn: #5A93CD; --cat-misc: #50C259; --cat-other: #D4E65A;
+    --cat-code: #4A90D9; --cat-doc: #2ecc71; --cat-comm: #f39c12;
+    --cat-browse: #9b59b6; --cat-meeting: #e74c3c; --cat-design: #1abc9c;
+    --cat-learn: #7B68EE; --cat-misc: #8899aa; --cat-other: #95a5a6;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:var(--font); background:var(--bg); color:var(--text); min-height:100vh; line-height:1.5; }
@@ -376,7 +376,7 @@ function renderHeatmap(events) {
     }
 
     html += '</div>';
-    var showLabel = (h === 8 || h === 12 || h === 16 || h === 0);
+    var showLabel = (h === 8 || h === 12 || h === 16 || h === 20 || h === 0);
     html += '<div class="heatmap-label' + (showLabel ? ' heatmap-label-bold' : '') + '">' + (showLabel ? label : '') + '</div>';
     html += '</div>';
   });
