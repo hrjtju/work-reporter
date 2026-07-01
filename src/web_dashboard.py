@@ -326,21 +326,31 @@ function renderHeatmap(events) {
     var e = events[i];
     if (!e.timestamp) continue;
     var ts = new Date(e.timestamp);
-    var hour = ts.getHours();
     var cat = e.category || '其他';
     allCats[cat] = true;
 
-    // 计算时长：到下一事件的时间差，上限 MAX_GAP
-    var duration;
+    // 计算时长起止：到下一事件的时间差，上限 MAX_GAP
+    var startMs = ts.getTime();
+    var endMs;
     if (i + 1 < events.length && events[i + 1].timestamp) {
       var nextTs = new Date(events[i + 1].timestamp);
-      duration = Math.min((nextTs - ts) / 60000, MAX_GAP);
+      endMs = Math.min(startMs + MAX_GAP * 60000, nextTs.getTime());
     } else {
-      duration = DEFAULT_MIN;
+      endMs = startMs + DEFAULT_MIN * 60000;
     }
-    if (duration <= 0) duration = 1;
+    if (endMs <= startMs) endMs = startMs + 60000;
 
-    hourData[hour][cat] = (hourData[hour][cat] || 0) + duration;
+    // 将时长 prorate 进所有涉及的小时桶（每小时桶只计入该小时内的有效分钟数）
+    var baseMs = new Date(ts.getFullYear(), ts.getMonth(), ts.getDate()).getTime();
+    for (var h = 0; h < 24; h++) {
+      var hourStartMs = baseMs + h * 3600 * 1000;
+      var hourEndMs = hourStartMs + 3600 * 1000;
+      var overlapMs = Math.max(0, Math.min(endMs, hourEndMs) - Math.max(startMs, hourStartMs));
+      var mins = overlapMs / 60000;
+      if (mins > 0) {
+        hourData[h][cat] = (hourData[h][cat] || 0) + mins;
+      }
+    }
   }
 
   // 2. 找出所有小时中的最大累计时长（用于归一化）
