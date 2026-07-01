@@ -124,6 +124,10 @@ def validate_config(config: dict[str, Any]) -> list[str]:
     if not isinstance(work_days, list) or not all(0 <= d <= 6 for d in work_days):
         errors.append("scheduler.work_days 必须是 0-6 的整数列表")
 
+    weekly_day = sch.get("weekly_report_day", 4)
+    if not isinstance(weekly_day, int) or not (0 <= weekly_day <= 6):
+        errors.append("scheduler.weekly_report_day 必须是 0-6 的整数（周一=0）")
+
     return errors
 
 
