@@ -97,8 +97,6 @@ USER_CONTEXT_TEMPLATE = """应用: {app_name} | 窗口: {window_title} | 时间:
 历史: {memory_context}"""
 
 # 日报生成 prompt
-
-# 日报生成 prompt
 DAILY_REPORT_PROMPT = """你是工作日报撰写助手。根据以下活动记录生成 Markdown 日报。
 
 日期：{date} | 事件数：{event_count} | 截图：{screenshot_count}
