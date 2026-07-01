@@ -2,7 +2,6 @@
 
 import logging
 import threading
-import webbrowser
 from datetime import date
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -263,16 +262,19 @@ class TrayApp:
             today_str = date.today().isoformat()
             report_path = self.project_root / "reports" / "daily" / f"{today_str}.md"
             if report_path.exists():
+                import webbrowser
                 webbrowser.open(str(report_path))
             else:
                 self.notify("Work Reporter", "今日暂无日报，请先截屏记录工作")
 
     def _on_open_reports(self, icon, item) -> None:
+        import webbrowser
         report_dir = self.project_root / "reports"
         if report_dir.exists():
             webbrowser.open(str(report_dir))
 
     def _on_open_screenshots(self, icon, item) -> None:
+        import webbrowser
         ss_dir = self.project_root / "data" / "screenshots"
         if ss_dir.exists():
             webbrowser.open(str(ss_dir))
