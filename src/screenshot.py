@@ -9,7 +9,7 @@ from typing import Callable, Optional
 
 import imagehash
 import mss
-from PIL import Image
+from PIL import Image, ImageDraw
 from pynput import keyboard
 
 logger = logging.getLogger(__name__)
@@ -381,6 +381,18 @@ class ScreenshotCapture:
         time_str = timestamp.strftime("%H-%M-%S")
         filename = f"{time_str}_screen{screen_index}.png"
         filepath = date_dir / filename
+
+        # 叠加半透明时间戳水印（右下角）
+        ts_label = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        draw = ImageDraw.Draw(img)
+        w, h = img.size
+        # 估算文字宽高（12px monospace）
+        tw = len(ts_label) * 7
+        th = 14
+        pad = 6
+        bg_alpha = 160
+        draw.rectangle([w - tw - pad * 2, h - th - pad * 2, w, h], fill=(0, 0, 0, bg_alpha))
+        draw.text((w - tw - pad * 2, h - th - pad), ts_label, fill=(255, 255, 255, 255))
 
         img.save(filepath, "PNG", optimize=True)
         logger.info("截图已保存: %s", filepath)
