@@ -119,23 +119,33 @@ class ReportScheduler:
 
     # ── 定时任务回调 ──────────────────────────────────
 
-    def _generate_daily_report_job(self) -> None:
-        """日报生成定时任务 — 生成昨天的日报."""
+    def _generate_daily_report_job(self, target_date: date | None = None) -> None:
+        """日报生成定时任务.
+
+        Args:
+            target_date: 报告目标日期，默认为当天 (date.today())
+        """
         try:
-            target = date.today()
-            logger.info("⏰ 日报定时任务触发 — %s", target)
-            data = self.generator.aggregate_daily(target)
+            if target_date is None:
+                target_date = date.today()
+            logger.info("⏰ 日报定时任务触发 — %s", target_date)
+            data = self.generator.aggregate_daily(target_date)
             content = self.generator.generate_daily_with_llm(data)
             if self.on_report_generated:
                 self.on_report_generated("daily", content[:200])
         except Exception:
             logger.exception("日报生成失败")
 
-    def _generate_weekly_report_job(self) -> None:
-        """周报生成定时任务."""
+    def _generate_weekly_report_job(self, week_start: date | None = None) -> None:
+        """周报生成定时任务.
+
+        Args:
+            week_start: 周起始日期（周一），默认为本周一
+        """
         try:
-            today = date.today()
-            week_start = today - timedelta(days=today.weekday())
+            if week_start is None:
+                today = date.today()
+                week_start = today - timedelta(days=today.weekday())
             logger.info("⏰ 周报定时任务触发 — 起始周 %s", week_start)
             data = self.generator.aggregate_weekly(week_start)
             content = self.generator.generate_weekly_with_llm(data)
