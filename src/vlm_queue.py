@@ -27,6 +27,7 @@ class VlmTask:
     privacy: Optional[object] = None
     work_memory: Optional[object] = None
     is_manual: bool = False  # True=手动触发，False=自动
+    retry_count: int = 0  # 已重试次数，避免无限重试
 
 
 class VlmTaskQueue:
@@ -83,7 +84,6 @@ class VlmTaskQueue:
         for task in tasks:
             task.store = store
             task.vision_llm = vision_llm
-            task.privacy = privacy
             task.work_memory = work_memory
             task.is_manual = True
             try:
@@ -108,6 +108,12 @@ class VlmTaskQueue:
                 self._process_one(task)
             except Exception:
                 logger.exception("VLM 任务处理异常: screenshot_id=%d", task.screenshot_id)
+                if task.retry_count == 0:
+                    task.retry_count = 1
+                    self._queue.put(task)  # 重试一次
+                    logger.info("VLM 任务已重新入队等待重试: screenshot_id=%d", task.screenshot_id)
+                else:
+                    logger.warning("VLM 任务处理失败已重试，放弃: screenshot_id=%d", task.screenshot_id)
             finally:
                 self._queue.task_done()
 
@@ -117,24 +123,6 @@ class VlmTaskQueue:
         vision_llm = task.vision_llm
         privacy = task.privacy
         work_memory = task.work_memory
-
-        # 隐私过滤
-        privacy_result = privacy.process(
-            image_path=task.file_path,
-            app_name=task.app_name,
-            window_title=task.window_title,
-        )
-        if privacy_result.should_skip:
-            logger.info("隐私跳过（队列处理）: screenshot_id=%d — %s", task.screenshot_id, privacy_result.skip_reason)
-            if store:
-                with store._write_lock:
-                    conn = store._get_conn()
-                    conn.execute(
-                        "UPDATE screenshots SET skipped=1, skip_reason=?, vlm_processed=1 WHERE id=?",
-                        (privacy_result.skip_reason, task.screenshot_id),
-                    )
-                    conn.commit()
-            return
 
         # VLM 分析
         analysis = None
