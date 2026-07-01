@@ -9,6 +9,8 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
+
 # ── 数据库 Schema ────────────────────────────────────────
 
 SCHEMA_SQL = """
@@ -88,7 +90,6 @@ class EventStore:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._write_lock = threading.Lock()
         self._local = threading.local()
-        self._all_conns: list[sqlite3.Connection] = []  # 跟踪所有连接
 
         # 初始化数据库
         self._init_db()
@@ -101,7 +102,6 @@ class EventStore:
             conn.execute("PRAGMA foreign_keys=ON")
             conn.row_factory = sqlite3.Row
             self._local.conn = conn
-            self._all_conns.append(conn)
         return self._local.conn
 
     def _init_db(self) -> None:
@@ -124,8 +124,11 @@ class EventStore:
         for sql in migrations:
             try:
                 conn.execute(sql)
-            except sqlite3.OperationalError:
-                pass  # 列已存在，跳过
+            except sqlite3.OperationalError as e:
+                if "duplicate column" in str(e).lower():
+                    pass  # 列已存在，跳过
+                else:
+                    logger.warning("数据库迁移失败: %s — SQL: %s", e, sql)
 
     # ── 截屏记录 ──────────────────────────────────────
 
@@ -427,12 +430,11 @@ class EventStore:
             return count
 
     def close(self) -> None:
-        """关闭所有线程的数据库连接."""
-        for conn in self._all_conns:
+        """关闭当前线程的数据库连接."""
+        if hasattr(self._local, "conn") and self._local.conn is not None:
             try:
-                conn.close()
+                self._local.conn.close()
             except Exception:
                 pass
-        self._all_conns.clear()
-        if hasattr(self._local, "conn"):
+            self._local.conn = None
             self._local.conn = None
