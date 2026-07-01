@@ -732,7 +732,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "/api/status": self._api_status,
             "/api/events": self._api_events,
             "/api/events/today": self._api_events_today,
-            "/api/events/today/llm": self._api_events_today_llm,
+            "/api/events/today/llm": self._api_events_llm,
             "/api/events/llm": self._api_events_llm,
             "/api/events/recent": self._api_events_recent,
             "/api/report/daily": self._api_report_daily_get,
