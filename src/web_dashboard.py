@@ -161,6 +161,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     <button class="btn" id="btnAuto" onclick="toggleAuto()">🔄 自动</button>
     <button class="btn btn-accent" id="btnVlmAuto" onclick="toggleVlmAuto()">🤖 自动</button>
     <button class="btn btn-accent" id="btnVlmProcess" style="display:none" onclick="apiPost('/api/vlm-process')">⚡ 分析</button>
+    <button class="btn" onclick="apiPost('/api/restart')">🔁 重启</button>
   </div>
 </div>
 <div class="container">
@@ -711,6 +712,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "/api/vlm-process": self._api_vlm_process,
             "/api/vlm-auto": self._api_vlm_auto,
             "/api/logs": self._api_logs,
+            "/api/restart": self._api_restart,
             "/api/report/daily": self._api_report_daily,
             "/api/report/weekly": self._api_report_weekly,
         }
@@ -854,6 +856,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"success": True, "vlm_auto": app._vlm_auto})
         except Exception as e:
             self._send_json({"success": False, "message": str(e)}, 500)
+
+    def _api_restart(self) -> None:
+        """重启应用."""
+        import threading
+        app = self.app_ref
+        if not app:
+            self._send_json({"success": False, "message": "App not ready"}, 503)
+            return
+        threading.Thread(target=app._restart_app, daemon=True).start()
+        self._send_json({"success": True, "message": "正在重启..."})
 
     def _api_events_today(self) -> None:
         app = self.app_ref

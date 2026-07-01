@@ -114,6 +114,10 @@ class TrayApp:
                 self._on_toggle_vlm_auto,
             ),
             pystray.MenuItem(
+                "🔁 重启应用",
+                self._on_restart,
+            ),
+            pystray.MenuItem(
                 "🌐 打开仪表盘",
                 self._on_open_dashboard,
             ),
@@ -291,6 +295,12 @@ class TrayApp:
 
     def _on_exit(self, icon, item) -> None:
         cb = self.callbacks.get("exit")
+        if cb:
+            cb()
+        self.stop()
+
+    def _on_restart(self, icon, item) -> None:
+        cb = self.callbacks.get("restart")
         if cb:
             cb()
         self.stop()

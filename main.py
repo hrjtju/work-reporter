@@ -138,6 +138,7 @@ class WorkReporterApp:
                 "is_vlm_auto": lambda: self._vlm_auto,
                 "open_dashboard": self._open_dashboard,
                 "exit": self.shutdown,
+                "restart": self._restart_app,
             },
             project_root=self.project_root,
         )
@@ -525,6 +526,30 @@ class WorkReporterApp:
         self.store.close()
         self._release_lock()
         self.logger.info("Work Reporter 已退出")
+
+    def _restart_app(self) -> None:
+        """重启应用：关闭所有服务，然后启动新进程."""
+        self.logger.info("正在重启...")
+        self._gpu_monitor_stop.set()
+        self.screenshot_capture.stop()
+        self.scheduler.stop()
+        self.web_dashboard.stop()
+        self.tray.stop()
+        if self.vision_llm:
+            self.vision_llm.close()
+        if self.text_llm:
+            self.text_llm.close()
+        self.store.close()
+        self._release_lock()
+        # 启动新进程
+        import subprocess, sys
+        subprocess.Popen(
+            [sys.executable, str(self.project_root / "main.py")],
+            cwd=str(self.project_root),
+            detached=True,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,
+        )
+        self.logger.info("Work Reporter 正在重启...")
 
     def _on_notify(self, title: str, message: str) -> None:
         """发送系统通知（通过托盘气泡）."""
