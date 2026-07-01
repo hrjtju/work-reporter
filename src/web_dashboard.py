@@ -556,7 +556,7 @@ function escHtml(s) {
 function toggleVlmAuto() {
   var status = $('vlmStatus').textContent;
   var enable = status.indexOf('自动') < 0;  // 当前不是自动则开启
-  fetch(API+'/api/vlm-auto', {
+  fetch(API+'/vlm-auto', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({enabled: enable}),
