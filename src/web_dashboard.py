@@ -97,9 +97,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .heatmap-bar { width:18px; height:120px; display:flex; flex-direction:column-reverse; border-radius:2px; overflow:hidden; outline:1px solid var(--hair); flex-shrink:0; }
   .heatmap-seg { width:100%; flex-shrink:0; transition:opacity 0.2s; }
   .heatmap-seg:hover { opacity:0.7; }
-  .heatmap-label { font-size:9px; color:var(--faint); margin-top:3px; font-family:monospace; line-height:12px; visibility:hidden; }
+  .heatmap-label { font-size:9px; color:var(--faint); margin-top:3px; font-family:monospace; line-height:12px; min-height:12px; visibility:hidden; }
   .heatmap-label-bold { font-weight:700; color:var(--text2); font-size:10px; line-height:12px; visibility:visible; }
-  .heatmap-label-bold { font-weight:700; color:var(--text2); font-size:10px; }
 
   .tab-bar { display:flex; gap:0; margin-bottom:12px; border-bottom:1px solid var(--hair); }
   .tab-btn { padding:7px 14px; font-size:12px; font-weight:600; cursor:pointer; border:none; background:none; color:var(--faint); border-bottom:2px solid transparent; margin-bottom:-1px; transition:all 0.15s; font-family:var(--font); }
