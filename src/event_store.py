@@ -464,4 +464,3 @@ class EventStore:
             except Exception:
                 pass
             self._local.conn = None
-            self._local.conn = None
