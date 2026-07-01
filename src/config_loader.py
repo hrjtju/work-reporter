@@ -17,6 +17,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "duplicate_threshold": 5,
         "storage_path": "data/screenshots",
         "max_screenshots_per_day": 200,
+        "vlm_auto": True,
     },
     "privacy": {
         "app_blacklist": [],
