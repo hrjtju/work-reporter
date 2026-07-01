@@ -485,6 +485,7 @@ async function generateReport() {
 }
 
 function renderLLMOutput(events) {
+  events.reverse();  // 与时间线保持一致，最新在上
   llmEventsCache = events;
   if (currentTab !== 'llm') return;
 
