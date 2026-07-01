@@ -1105,3 +1105,5 @@ class WebDashboard:
             self._server.shutdown()
             self._running = False
             logger.info("Web 仪表盘已停止")
+        if self._thread:
+            self._thread.join(timeout=5)
