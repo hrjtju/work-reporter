@@ -276,7 +276,20 @@ class WorkReporterApp:
         """截屏完成后的处理管线 — 隐私检查后入队，异步处理."""
         try:
             if result.skipped:
-                return  # 去重截图直接跳过
+                # 去重截图也记录到 DB，便于统计
+                if result.is_duplicate and result.file_path:
+                    self.store.insert_screenshot(
+                        timestamp=result.timestamp,
+                        file_path=result.file_path,
+                        phash=result.phash,
+                        app_name=result.app_name,
+                        window_title=result.window_title,
+                        screen_index=result.screen_index,
+                        is_duplicate=True,
+                        skipped=True,
+                        skip_reason=result.skip_reason,
+                    )
+                return
 
             # 隐私过滤（先于 DB 插入）
             privacy_result = self.privacy.process(
