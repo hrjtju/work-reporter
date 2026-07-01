@@ -345,15 +345,6 @@ class WorkReporterApp:
         except Exception:
             self.logger.exception("处理截图回调失败")
 
-    def _build_activity_summary(self, result: ScreenshotResult) -> str:
-        """根据截图信息构建活动摘要（LLM 不可用时的 fallback）."""
-        app = result.app_name or "未知应用"
-        title = result.window_title or ""
-
-        if app:
-            return f"使用 {app} — {title}" if title else f"使用 {app}"
-        return f"屏幕 {result.screen_index} 截图"
-
     # ── 手动操作 ──────────────────────────────────────
 
     def _manual_screenshot(self) -> None:
