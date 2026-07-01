@@ -546,8 +546,8 @@ class WorkReporterApp:
         subprocess.Popen(
             [sys.executable, str(self.project_root / "main.py")],
             cwd=str(self.project_root),
-            detached=True,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,
+            start_new_session=True,
         )
         self.logger.info("Work Reporter 正在重启...")
 
