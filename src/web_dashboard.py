@@ -227,8 +227,8 @@ async function toggleAuto() {
 }
 function showToast(msg) { const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000); }
 
-const CAT_ICONS = { '创作构建':'🛠','阅读查阅':'📖','沟通协作':'💬','分析计算':'📊','会议讨论':'🎙','设计绘图':'🎨','学习研究':'🔬','娱乐休闲':'🎮','其他':'📌' };
-const CAT_CSS = { '创作构建':'cat-code','阅读查阅':'cat-doc','沟通协作':'cat-comm','分析计算':'cat-browse','会议讨论':'cat-meeting','设计绘图':'cat-design','学习研究':'cat-learn','娱乐休闲':'cat-other','其他':'cat-misc' };
+const CAT_ICONS = { '开发创作':'🛠','阅读浏览':'📖','沟通协作':'💬','复盘分析':'📊','会议讨论':'🎙','设计绘图':'🎨','研究学习':'🔬','社交沟通':'💬','娱乐休闲':'🎮','其他':'📌' };
+const CAT_CSS = { '开发创作':'cat-code','阅读浏览':'cat-doc','沟通协作':'cat-comm','复盘分析':'cat-browse','会议讨论':'cat-meeting','设计绘图':'cat-design','研究学习':'cat-learn','社交沟通':'cat-comm','娱乐休闲':'cat-other','其他':'cat-misc' };
 
 function catIcon(cat) { return CAT_ICONS[cat]||'📌'; }
 function catCss(cat) { return CAT_CSS[cat]||'cat-other'; }
@@ -244,7 +244,7 @@ function renderTimeline(events) {
   var html = '';
   if (events.length === 0) return html;
 
-  var CATS = ['创作构建','阅读查阅','沟通协作','分析计算','会议讨论','设计绘图','学习研究','娱乐休闲','其他'];
+  var CATS = ['开发创作','阅读浏览','沟通协作','复盘分析','会议讨论','设计绘图','研究学习','社交沟通','娱乐休闲','其他'];
 
   var rev = events.slice().reverse();
   var lastTime = null;
@@ -306,13 +306,14 @@ async function changeCategory(id, cat) {
 
 // 类别到颜色的映射（与 CSS 变量 --cat-* 保持一致）
 var CAT_COLORS = {
-  '创作构建': '#7D55BF',
-  '阅读查阅': '#9C9694',
+  '开发创作': '#7D55BF',
+  '阅读浏览': '#9C9694',
   '沟通协作': '#CA7646',
-  '分析计算': '#923130',
+  '复盘分析': '#923130',
   '会议讨论': '#65E3C8',
   '设计绘图': '#973594',
-  '学习研究': '#5A93CD',
+  '研究学习': '#5A93CD',
+  '社交沟通': '#f39c12',
   '娱乐休闲': '#50C259',
   '其他': '#D4E65A',
 };
@@ -1068,8 +1069,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         })
 
     ALLOWED_CATEGORIES = {
-        "创作构建", "阅读查阅", "沟通协作", "分析计算",
-        "会议讨论", "设计绘图", "学习研究", "娱乐休闲", "其他",
+        "开发创作", "阅读浏览", "沟通协作", "复盘分析",
+        "会议讨论", "设计绘图", "研究学习", "社交沟通", "娱乐休闲", "其他",
     }
 
     def _api_event_category(self, event_id: int) -> None:
