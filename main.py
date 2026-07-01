@@ -277,7 +277,7 @@ class WorkReporterApp:
         """截屏完成后的处理管线 — 隐私检查后入队，异步处理."""
         try:
             if result.skipped:
-                # 去重截图也记录到 DB，便于统计
+                # 去重截图：记录到 DB，然后更新上一个同类事件的结束时间
                 if result.is_duplicate and result.file_path:
                     self.store.insert_screenshot(
                         timestamp=result.timestamp,
@@ -289,6 +289,10 @@ class WorkReporterApp:
                         is_duplicate=True,
                         skipped=True,
                         skip_reason=result.skip_reason,
+                    )
+                    # 将上一个同类事件的 timestamp 更新为当前重复截图的时间
+                    self.store.update_last_event_timestamp(
+                        result.app_name, result.window_title, result.timestamp,
                     )
                 return
 
@@ -542,7 +546,7 @@ class WorkReporterApp:
         self.store.close()
         self._release_lock()
         # 启动新进程，然后当前进程退出
-        import subprocess, sys
+        import os, subprocess, sys
         subprocess.Popen(
             [sys.executable, str(self.project_root / "main.py")],
             cwd=str(self.project_root),
@@ -550,6 +554,7 @@ class WorkReporterApp:
             start_new_session=True,
         )
         self.logger.info("Work Reporter 正在重启...")
+        os._exit(0)  # 立即终止当前进程，不等待线程清理
         sys.exit(0)  # 退出当前进程，让新进程接管
 
     def _on_notify(self, title: str, message: str) -> None:
