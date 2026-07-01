@@ -680,6 +680,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "/api/report/daily/today": self._api_report_today,
             "/api/stats": self._api_stats,
             "/api/reports": self._api_reports,
+            "/api/logs": self._api_logs,
         }
 
         # 静态文件服务 — 报告内容

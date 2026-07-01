@@ -10,6 +10,9 @@ wheels/
 .venv
 .claude
 
+# Dependencies
+node_modules/
+
 data/*
 reports/daily/*
 reports/weekly/*
