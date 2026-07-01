@@ -39,7 +39,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   body { font-family:var(--font); background:var(--bg); color:var(--text); min-height:100vh; line-height:1.5; }
   .header { background:var(--surface); padding:18px 32px; border-bottom:1px solid var(--hair); display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
   .header h1 { font-size:18px; font-weight:600; letter-spacing:-0.3px; }
-  .header .subtitle { color:var(--faint); font-size:12px; }
+  .date-nav { display:flex; align-items:center; gap:4px; margin-top:4px; }
+  .date-nav input[type=date] { font-size:13px; padding:2px 6px; border:1px solid var(--hair); border-radius:4px; background:var(--bg2); color:var(--text); }
   .container { max-width:1440px; margin:0 auto; padding:20px 24px; }
   .stats-bar { display:flex; gap:0; margin-bottom:18px; background:var(--surface); border-radius:var(--radius); border:1px solid var(--border); overflow:hidden; }
   .stats-bar .stat { flex:1; padding:14px 16px; text-align:center; border-right:1px solid var(--hair); }
@@ -153,7 +154,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 </head>
 <body>
 <div class="header">
-  <div><h1>Work Reporter</h1><div class="subtitle" id="statusText">加载中...</div></div>
+  <div><h1>Work Reporter</h1>
+  <div class="date-nav">
+    <button class="btn" onclick="navigateDate(-1)" title="前一天">◀</button>
+    <input type="date" id="datePicker" onchange="onDateChanged()">
+    <button class="btn" onclick="navigateDate(1)" title="后一天">▶</button>
+    <span id="dateLabel" style="font-size:13px;color:var(--text2);margin-left:6px;"></span>
+  </div></div>
   <div class="actions" style="margin-bottom:0;">
     <button class="btn" onclick="apiPost('/capture')">📸 截屏</button>
     <button class="btn" onclick="apiPost('/pause')">⏯ 暂停</button>
@@ -165,10 +172,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 </div>
 <div class="container">
   <div class="stats-bar">
-    <div class="stat"><div class="label">今日截图</div><div class="value" style="color:var(--accent)" id="ssCount">-</div></div>
-    <div class="stat"><div class="label">今日事件</div><div class="value" style="color:var(--cat-code)" id="evtCount">-</div></div>
-    <div class="stat"><div class="label">隐私过滤</div><div class="value" style="color:var(--success)" id="privSkip">-</div></div>
-    <div class="stat"><div class="label">截屏状态</div><div class="value" style="color:var(--warn);font-size:14px" id="pauseStatus">-</div></div>
+    <div class="stat"><div class="label">截图</div><div class="value" style="color:var(--accent)" id="ssCount">-</div></div>
+    <div class="stat"><div class="label">事件</div><div class="value" style="color:var(--cat-code)" id="evtCount">-</div></div>
+    <div class="stat"><div class="label">隐私跳过</div><div class="value" style="color:var(--success)" id="privSkip">-</div></div>
+    <div class="stat"><div class="label">截屏</div><div class="value" style="color:var(--warn);font-size:14px" id="pauseStatus">-</div></div>
     <div class="stat"><div class="label">日报</div><div class="value" style="font-size:14px" id="dailyStatus">-</div></div>
     <div class="stat"><div class="label">VLM</div><div class="value" style="font-size:14px" id="vlmStatus">-</div></div>
   </div>
@@ -191,7 +198,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     <div class="right-col">
       <div class="panel report-panel">
         <div class="report-header">
-          <h2>📋 今日报告</h2>
+          <h2>📋 日报</h2>
           <button class="btn btn-accent btn-sm" onclick="generateReport()">生成日报</button>
         </div>
         <div id="reportContent" class="report-body">
@@ -437,8 +444,26 @@ function switchTab(tab) {
   }
 }
 
-function renderMarkdown(md) {
+function renderMarkdown(md, reportDate) {
   if (!md) return '<div class="empty-state">暂无内容</div>';
+  // 替换第一行 H1 为指定日期（reportDate 为 YYYY-MM-DD 格式）
+  var dateLabel = reportDate || new Date().toISOString().slice(0,10);
+  var parts = dateLabel.split('-');
+  if (parts.length === 3) {
+    var d = new Date(dateLabel);
+    dateLabel = d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日';
+  }
+  var lines = md.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    if (line.trim() !== '') {
+      if (line.startsWith('# ')) {
+        lines[i] = '# ' + dateLabel;
+      }
+      break;
+    }
+  }
+  md = lines.join('\n');
   // Escape HTML first
   md = md.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   // Headers
@@ -480,10 +505,10 @@ function renderMarkdown(md) {
 async function generateReport() {
   $('reportContent').innerHTML = '<div class="empty-state" style="color:var(--accent)">生成中...</div>';
   try {
-    var r = await fetch(API+'/report/daily', {method:'POST'});
+    var r = await fetch(API+'/report/daily?date='+currentDate, {method:'POST'});
     var d = await r.json();
     if (d.success && d.content) {
-      $('reportContent').innerHTML = renderMarkdown(d.content);
+      $('reportContent').innerHTML = renderMarkdown(d.content, currentDate);
       $('dailyStatus').textContent = '✅ 已生成';
     } else {
       $('reportContent').innerHTML = '<div class="empty-state">生成失败: '+(d.message||'未知错误')+'</div>';
@@ -502,7 +527,7 @@ function renderLLMOutput(events) {
   var html = '';
 
   if (events.length === 0) {
-    html = '<div class="llm-no-data">暂无今日事件</div>';
+    html = '<div class="llm-no-data">暂无该日 LLM 分析数据</div>';
   } else if (hasLLM.length === 0) {
     html = '<div class="llm-no-data">暂无 LLM 分析数据（可能 LLM 未启用或全部走规则引擎兜底）</div>';
   }
@@ -565,6 +590,25 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+var currentDate = new Date().toISOString().slice(0, 10);
+
+function onDateChanged() {
+  currentDate = $('datePicker').value;
+  refresh();
+}
+
+function navigateDate(delta) {
+  var d = new Date(currentDate);
+  d.setDate(d.getDate() + delta);
+  currentDate = d.toISOString().slice(0, 10);
+  $('datePicker').value = currentDate;
+  refresh();
+}
+
+function fmtDate(d) {
+  return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日';
+}
+
 function toggleVlmAuto() {
   var status = $('vlmStatus').textContent;
   var enable = status.indexOf('自动') < 0;  // 当前不是自动则开启
@@ -583,9 +627,10 @@ function toggleVlmAuto() {
 }
 
 async function refresh() {
+  $('dateLabel').textContent = fmtDate(new Date(currentDate));
+  $('datePicker').value = currentDate;
   try {
-    var status = await fetchJSON(API+'/status');
-    $('statusText').innerHTML = '<span class="status-dot '+(status.is_paused?'paused':'active')+'"></span>'+status.status_text;
+    var status = await fetchJSON(API+'/status?date='+currentDate);
     $('ssCount').textContent = status.today_screenshots;
     $('evtCount').textContent = status.today_events;
     $('privSkip').textContent = status.privacy_skips;
@@ -609,26 +654,26 @@ async function refresh() {
     var bp = $('btnVlmProcess');
     if (bp) bp.style.display = vlmAuto ? 'none' : '';
 
-    var events = await fetchJSON(API+'/events/today');
+    var events = await fetchJSON(API+'/events?date='+currentDate);
     renderHeatmap(events);
     if (events.length > 0) {
       $('eventList').innerHTML = renderTimeline(events);
     } else {
-      $('eventList').innerHTML = '<div class="empty">暂无今日事件，按快捷键开始截屏 📸</div>';
+      $('eventList').innerHTML = '<div class="empty">暂无该日事件，按快捷键开始截屏 📸</div>';
     }
 
-    // 加载已有日报
-    if (status.has_daily_report && $('reportContent').querySelector('.empty-state')) {
-      fetchJSON(API+'/report/daily/today').then(function(d){
-        if (d.content) $('reportContent').innerHTML = renderMarkdown(d.content);
+    // 加载日报
+    if (status.has_daily_report) {
+      fetchJSON(API+'/report/daily?date='+currentDate).then(function(d){
+        if (d.content) $('reportContent').innerHTML = renderMarkdown(d.content, currentDate);
       }).catch(function(){});
     }
 
-    // 预加载 LLM 原始输出数据
-    fetchJSON(API+'/events/today/llm').then(function(llmEvents) {
+    // LLM 原始输出
+    fetchJSON(API+'/events/llm?date='+currentDate).then(function(llmEvents) {
       renderLLMOutput(llmEvents);
     }).catch(function(){});
-  } catch(e) { console.error(e); $('statusText').textContent = '⚠ 连接失败'; }
+  } catch(e) { console.error(e); }
 }
 
 refresh();
@@ -685,9 +730,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
         routes = {
             "/": self._serve_dashboard,
             "/api/status": self._api_status,
+            "/api/events": self._api_events,
             "/api/events/today": self._api_events_today,
             "/api/events/today/llm": self._api_events_today_llm,
+            "/api/events/llm": self._api_events_llm,
             "/api/events/recent": self._api_events_recent,
+            "/api/report/daily": self._api_report_daily_get,
             "/api/report/daily/today": self._api_report_today,
             "/api/stats": self._api_stats,
             "/api/reports": self._api_reports,
@@ -741,6 +789,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
+    # ── 辅助方法 ──────────────────────────────────────
+
+    def _parse_date(self) -> date | None:
+        """从 URL 查询参数 ?date=YYYY-MM-DD 解析日期，失败返回 None."""
+        try:
+            parsed = urlparse(self.path)
+            qs = parsed.query
+            if not qs:
+                return None
+            for part in qs.split("&"):
+                if part.startswith("date="):
+                    return date.fromisoformat(part[5:])
+            return None
+        except Exception:
+            return None
+
     # ── 页面服务 ──────────────────────────────────────
 
     def _serve_dashboard(self) -> None:
@@ -777,19 +841,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not app:
             self._send_json({"error": "App not ready"}, 503)
             return
-        today = date.today()
+        target_date = self._parse_date() or date.today()
         self._send_json({
             "is_paused": app.screenshot_capture.is_paused,
             "is_auto": app.screenshot_capture.is_auto,
             "capture_mode": app.screenshot_capture.capture_mode,
             "auto_interval": app.config["screenshot"]["auto_interval_minutes"],
             "vlm_auto": app._vlm_auto,
-            "today_screenshots": app.store.get_screenshot_count_for_date(today),
-            "today_events": len(app.store.get_today_events()),
+            "today_screenshots": app.store.get_screenshot_count_for_date(target_date),
+            "today_events": len(app.store.get_work_events_for_date(target_date)),
             "privacy_skips": app.privacy.get_stats()["skip_count"],
             "privacy_blurs": app.privacy.get_stats()["blur_count"],
             "ocr_matches": app.privacy.get_stats()["ocr_match_count"],
-            "has_daily_report": app.store.get_daily_report(today) is not None,
+            "has_daily_report": app.store.get_daily_report(target_date) is not None,
             "status_text": app._get_status_text(),
             "next_reports": {
                 k: str(v) if v else None
@@ -878,6 +942,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self._send_json({"success": True, "message": "正在重启..."})
 
     def _api_events_today(self) -> None:
+        """兼容旧路由，仍返回今日事件."""
         app = self.app_ref
         if not app:
             self._send_json({"error": "App not ready"}, 503)
@@ -885,13 +950,24 @@ class DashboardHandler(BaseHTTPRequestHandler):
         events = app.store.get_today_events()
         self._send_json(events)
 
-    def _api_events_today_llm(self) -> None:
-        """返回今日事件，包含 raw_response 用于 LLM 诊断面板."""
+    def _api_events(self) -> None:
+        """返回指定日期的事件列表，?date=YYYY-MM-DD"""
         app = self.app_ref
         if not app:
             self._send_json({"error": "App not ready"}, 503)
             return
-        events = app.store.get_today_events()
+        target_date = self._parse_date() or date.today()
+        events = app.store.get_work_events_for_date(target_date)
+        self._send_json(events)
+
+    def _api_events_llm(self) -> None:
+        """返回指定日期事件（包含 raw_response），用于 LLM 诊断面板."""
+        app = self.app_ref
+        if not app:
+            self._send_json({"error": "App not ready"}, 503)
+            return
+        target_date = self._parse_date() or date.today()
+        events = app.store.get_work_events_for_date(target_date)
         # 只返回有 LLM 分析的事件，精简字段
         result = []
         for e in events:
@@ -1017,7 +1093,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"error": str(e)}, 500)
 
     def _api_report_today(self) -> None:
-        """返回今日已有日报内容."""
+        """兼容旧路由，返回今日日报."""
         app = self.app_ref
         if not app:
             self._send_json({"error": "App not ready"}, 503)
@@ -1029,13 +1105,28 @@ class DashboardHandler(BaseHTTPRequestHandler):
         else:
             self._send_json({"content": ""})
 
+    def _api_report_daily_get(self) -> None:
+        """返回指定日期已有日报内容，?date=YYYY-MM-DD"""
+        app = self.app_ref
+        if not app:
+            self._send_json({"error": "App not ready"}, 503)
+            return
+        target_date = self._parse_date() or date.today()
+        report = app.store.get_daily_report(target_date)
+        if report:
+            self._send_json({"content": report.get("content", "")})
+        else:
+            self._send_json({"content": ""})
+
     def _api_report_daily(self) -> None:
+        """生成指定日期日报，?date=YYYY-MM-DD"""
         app = self.app_ref
         if not app:
             self._send_json({"error": "App not ready"}, 503)
             return
         try:
-            content = app.scheduler.generate_daily_report_now()
+            target_date = self._parse_date() or date.today()
+            content = app.scheduler.generate_daily_report_now(target_date)
             self._send_json({
                 "success": True,
                 "message": "日报生成完成",
