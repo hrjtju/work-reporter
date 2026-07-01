@@ -194,10 +194,10 @@ class PrivacyFilter:
                 output_type=pytesseract.Output.DICT,
             )
         except ImportError:
-            logger.warning("pytesseract 未安装，跳过 Layer3 OCR 检测")
+            logger.debug("pytesseract 未安装，跳过 Layer3 OCR 检测")
             return []
         except Exception as e:
-            logger.warning("Tesseract OCR 不可用 (%s)，跳过 Layer3", e)
+            logger.debug("Tesseract OCR 不可用 (%s)，跳过 Layer3", e)
             return []
 
         # 遍历每个识别到的文本块
