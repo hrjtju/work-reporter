@@ -156,12 +156,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <div class="header">
   <div><h1>Work Reporter</h1><div class="subtitle" id="statusText">加载中...</div></div>
   <div class="actions" style="margin-bottom:0;">
-    <button class="btn" onclick="apiPost('/api/capture')">📸 截屏</button>
-    <button class="btn" onclick="apiPost('/api/pause')">⏯ 暂停</button>
+    <button class="btn" onclick="apiPost('/capture')">📸 截屏</button>
+    <button class="btn" onclick="apiPost('/pause')">⏯ 暂停</button>
     <button class="btn" id="btnAuto" onclick="toggleAuto()">🔄 自动</button>
     <button class="btn btn-accent" id="btnVlmAuto" onclick="toggleVlmAuto()">🤖 自动</button>
-    <button class="btn btn-accent" id="btnVlmProcess" style="display:none" onclick="apiPost('/api/vlm-process')">⚡ 分析</button>
-    <button class="btn" onclick="apiPost('/api/restart')">🔁 重启</button>
+    <button class="btn btn-accent" id="btnVlmProcess" style="display:none" onclick="apiPost('/vlm-process')">⚡ 分析</button>
+    <button class="btn" onclick="apiPost('/restart')">🔁 重启</button>
   </div>
 </div>
 <div class="container">

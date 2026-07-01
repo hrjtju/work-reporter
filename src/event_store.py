@@ -1,6 +1,7 @@
 """事件存储模块 — SQLite 数据库操作，管理截图记录、工作事件和报告"""
 
 import logging
+import os
 import sqlite3
 import threading
 from datetime import date, datetime
@@ -416,16 +417,29 @@ class EventStore:
     # ── 清理 ──────────────────────────────────────────
 
     def delete_old_screenshots(self, before_date: date) -> int:
-        """删除指定日期之前的截图记录和文件引用."""
+        """删除指定日期之前的截图记录和文件."""
         with self._write_lock:
             conn = self._get_conn()
+            rows = conn.execute(
+                "SELECT file_path FROM screenshots WHERE date(timestamp) < ?",
+                (before_date.isoformat(),),
+            ).fetchall()
+            file_paths = [r[0] for r in rows if r[0]]
             cursor = conn.execute(
                 "DELETE FROM screenshots WHERE date(timestamp) < ?",
                 (before_date.isoformat(),),
             )
             count = cursor.rowcount
             conn.commit()
-            logger.info("已清理 %d 条旧截图记录 (早于 %s)", count, before_date)
+            deleted_files = 0
+            for fp in file_paths:
+                try:
+                    if fp and os.path.exists(fp):
+                        os.remove(fp)
+                        deleted_files += 1
+                except Exception:
+                    pass
+            logger.info("已清理 %d 条截图记录，删除 %d 个文件 (早于 %s)", count, deleted_files, before_date)
             return count
 
     def get_unprocessed_screenshots(self, target_date: date) -> list[dict]:
