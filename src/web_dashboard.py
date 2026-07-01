@@ -207,7 +207,7 @@ const API = '/api';
 function $(id) { return document.getElementById(id); }
 async function fetchJSON(url) { const r = await fetch(url); return r.json(); }
 async function apiPost(path) {
-  try { const r=await fetch(API+path,{method:'POST'}); const d=await r.json(); showToast(d.message||'OK'); refresh(); }
+  try { const r=await fetch(API+path,{method:'POST'}); const d=await r.json(); showToast(d.error||d.message||(r.ok?'OK':'Error: '+r.status)); refresh(); }
   catch(e) { showToast('Error: '+e.message); }
 }
 async function toggleAuto() {
@@ -827,7 +827,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "App not ready"}, 503)
             return
         if app._vlm_auto:
-            self._send_json({"error": "VLM 已是自动模式，无需手动处理"}, 400)
+            self._send_json({"success": False, "message": "VLM 已是自动模式，无需手动处理"}, 400)
             return
         try:
             result = app._process_manual_vlm_batch()
