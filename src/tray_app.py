@@ -111,6 +111,10 @@ class TrayApp:
                 self._on_toggle_auto,
             ),
             pystray.MenuItem(
+                "🤖 VLM 自动 开/关",
+                self._on_toggle_vlm_auto,
+            ),
+            pystray.MenuItem(
                 "🌐 打开仪表盘",
                 self._on_open_dashboard,
             ),
@@ -216,6 +220,17 @@ class TrayApp:
             if check:
                 is_auto = check()
             state = "自动截屏已开启" if is_auto else "自动截屏已关闭，恢复手动"
+            self.notify("Work Reporter", state)
+
+    def _on_toggle_vlm_auto(self, icon, item) -> None:
+        cb = self.callbacks.get("toggle_vlm_auto")
+        if cb:
+            cb()
+            is_vlm_auto = False
+            check = self.callbacks.get("is_vlm_auto")
+            if check:
+                is_vlm_auto = check()
+            state = "VLM 已切换为自动模式" if is_vlm_auto else "VLM 已切换为手动模式"
             self.notify("Work Reporter", state)
 
     def _on_generate_daily(self, icon, item) -> None:
