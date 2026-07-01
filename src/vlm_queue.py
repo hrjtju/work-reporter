@@ -130,7 +130,7 @@ class VlmTaskQueue:
                 with store._write_lock:
                     conn = store._get_conn()
                     conn.execute(
-                        "UPDATE screenshots SET skipped=1, skip_reason=? WHERE id=?",
+                        "UPDATE screenshots SET skipped=1, skip_reason=?, vlm_processed=1 WHERE id=?",
                         (privacy_result.skip_reason, task.screenshot_id),
                     )
                     conn.commit()
