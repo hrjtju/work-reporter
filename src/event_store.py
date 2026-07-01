@@ -414,6 +414,28 @@ class EventStore:
             )
             conn.commit()
 
+    def update_last_event_timestamp(
+        self,
+        app_name: str,
+        window_title: str,
+        new_timestamp: datetime,
+    ) -> bool:
+        """更新最近一条同类 work_event 的 timestamp，返回是否更新成功."""
+        with self._write_lock:
+            conn = self._get_conn()
+            cursor = conn.execute(
+                """UPDATE work_events
+                   SET timestamp = ?
+                   WHERE id = (
+                     SELECT id FROM work_events
+                     WHERE app_name = ? AND window_title = ?
+                     ORDER BY timestamp DESC LIMIT 1
+                   )""",
+                (new_timestamp.isoformat(), app_name, window_title),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     # ── 清理 ──────────────────────────────────────────
 
     def delete_old_screenshots(self, before_date: date) -> int:
