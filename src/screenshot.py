@@ -113,8 +113,6 @@ class ScreenshotCapture:
         self._paused = False
         self._auto_mode = False       # 自动截屏开关
         self._auto_timer: threading.Timer | None = None
-        self._privacy_retry_pending = False
-        self._privacy_retry_timer: threading.Timer | None = None
         self._listener: keyboard.GlobalHotKeys | None = None
         self._lock = threading.Lock()
 
@@ -210,10 +208,6 @@ class ScreenshotCapture:
         if self._auto_timer is not None:
             self._auto_timer.cancel()
             self._auto_timer = None
-        if self._privacy_retry_timer is not None:
-            self._privacy_retry_timer.cancel()
-            self._privacy_retry_timer = None
-            self._privacy_retry_pending = False
         logger.info("自动截屏已关闭")
 
     def _schedule_auto_tick(self) -> None:
@@ -236,34 +230,6 @@ class ScreenshotCapture:
             logger.debug("自动截屏完成 — %d 张", len(results))
         except Exception:
             logger.exception("自动截屏失败")
-        finally:
-            if not self._privacy_retry_pending:
-                self._schedule_auto_tick()
-
-    def schedule_privacy_retry(self) -> None:
-        """隐私跳过时安排一次 2 分钟后的重试（仅一次）."""
-        if not self._auto_mode or self._privacy_retry_pending:
-            return
-        self._privacy_retry_pending = True
-        logger.info("🛡 隐私跳过，2 分钟后重试一次")
-        self._privacy_retry_timer = threading.Timer(120, self._privacy_retry_capture)
-        self._privacy_retry_timer.daemon = True
-        self._privacy_retry_timer.start()
-
-    def _privacy_retry_capture(self) -> None:
-        """隐私重试截屏."""
-        self._privacy_retry_pending = False
-        if not self._auto_mode or self._paused:
-            self._schedule_auto_tick()
-            return
-        try:
-            results = self.capture_all_screens()
-            if self.on_capture:
-                for result in results:
-                    self.on_capture(result)
-            logger.info("🛡 隐私重试截屏完成")
-        except Exception:
-            logger.exception("隐私重试截屏失败")
         finally:
             self._schedule_auto_tick()
 
