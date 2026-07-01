@@ -221,7 +221,7 @@ class WorkMemory:
                 new_events=events_text,
             )
 
-            response = self.llm._text_completion(prompt)
+            response = self.llm.complete_text(prompt)
             data = self._parse_memory_response(response)
 
             if data:

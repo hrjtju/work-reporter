@@ -488,7 +488,7 @@ class VisionAnalyzer:
         return None
 
     def _text_completion(self, prompt: str) -> str:
-        """调用纯文本补全."""
+        """调用纯文本补全（内部方法，失败时抛异常）."""
         for attempt in range(self.max_retries):
             try:
                 resp = self._session.post(
@@ -511,7 +511,15 @@ class VisionAnalyzer:
             except Exception:
                 if attempt == self.max_retries - 1:
                     raise
-        return ""
+        raise RuntimeError("Text completion failed after max retries")
+
+    def complete_text(self, prompt: str) -> str:
+        """Public wrapper: 调用纯文本补全，失败时返回空字符串（兼容旧调用方）."""
+        try:
+            return self._text_completion(prompt)
+        except Exception:
+            logger.exception("Text completion failed")
+            return ""
 
     # ── 响应解析 ──────────────────────────────────────
 
