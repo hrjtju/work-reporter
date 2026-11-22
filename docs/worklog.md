@@ -122,3 +122,15 @@
 
 - 连接 reset 仍在：退避只是提高重试成功率，根因未定位（keep-alive 更优已排除空闲回收假设）。若后续频繁失败，考虑换稳定中转端点或降低单次请求体积后再评估。
 - `screenshot.work_hours_only` 只影响**自动**截屏，手动热键 `Ctrl+Shift+Alt+S` 和 `/api/capture` 任何时间都能截（符合预期，留作手动补记）。
+
+### 推送通道（踩坑）
+
+本次 `git push` 在 WSL 内失败：`GnuTLS, handshake failed: An unexpected TLS packet was received`
+（WSL 环境变量 `https_proxy=http://127.0.0.1:7890` 走 Clash for Windows）。改 `7897`（SakuraCat）会直接卡住无响应；
+WSL 侧接口 MTU 已正常（无 9000 大 MTU 接口），不是 MTU 黑洞。**可用做法：在 Windows 侧执行 git**：
+
+```powershell
+powershell.exe -NoProfile -Command "cd 'C:\...\work-reporter'; git push -u origin <branch>"
+```
+
+（同一工作树、同一 .git，Windows git 走系统代理与已保存凭据正常。）
