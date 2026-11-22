@@ -94,7 +94,6 @@ class ScreenshotCapture:
         auto_interval_minutes: int = 2,
         on_capture: Callable[["ScreenshotResult"], None] | None = None,
         on_notify: Callable[[str, str], None] | None = None,
-        should_capture: Callable[[], bool] | None = None,
     ):
         self.storage_path = Path(storage_path)
         self.quality = quality
@@ -105,8 +104,6 @@ class ScreenshotCapture:
         self.auto_interval = auto_interval_minutes * 60  # 转为秒
         self.on_capture = on_capture
         self.on_notify = on_notify
-        # 自动截屏的时段门禁（返回 False 则本轮跳过）；None = 不限时段
-        self.should_capture = should_capture
 
         # 转为 pynput 格式
         self._pynput_hotkey = _config_to_pynput(hotkey)
@@ -224,10 +221,6 @@ class ScreenshotCapture:
     def _auto_capture_tick(self) -> None:
         """自动截屏定时触发."""
         if not self._auto_mode or self._paused:
-            return
-        if self.should_capture is not None and not self.should_capture():
-            logger.debug("自动截屏跳过 — 当前不在工作时段")
-            self._schedule_auto_tick()
             return
         try:
             results = self.capture_all_screens()

@@ -114,7 +114,6 @@ class WorkReporterApp:
             auto_interval_minutes=self.config["screenshot"]["auto_interval_minutes"],
             on_capture=self._on_screenshot_captured,
             on_notify=self._on_notify,
-            should_capture=self._in_work_hours if self.config["screenshot"].get("work_hours_only", True) else None,
         )
 
         # 调度器
@@ -213,14 +212,6 @@ class WorkReporterApp:
 
         self.logger.info("所有模块初始化完成")
         self._print_startup_info()
-
-    def _in_work_hours(self) -> bool:
-        """自动截屏时段门禁：仅当 scheduler.work_hours_start <= now < work_hours_end 时返回 True."""
-        sch = self.config.get("scheduler", {})
-        now = datetime.now().strftime("%H:%M")
-        start = sch.get("work_hours_start", "09:00")
-        end = sch.get("work_hours_end", "20:00")
-        return start <= now < end
 
     def _start_gpu_monitor(self) -> None:
         """启动 GPU 利用率监控线程，高负载时切换模型."""

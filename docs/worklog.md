@@ -134,3 +134,24 @@ powershell.exe -NoProfile -Command "cd 'C:\...\work-reporter'; git push -u origi
 ```
 
 （同一工作树、同一 .git，Windows git 走系统代理与已保存凭据正常。）
+
+---
+
+## 2026-11-22（再续）按用户要求移除自动截屏的工作时段门禁
+
+用户："现在对工作时间是否有限定？有的话删掉。" → 撤掉当天上午刚加的 ②。
+
+- `src/screenshot.py`：删除 `should_capture` 参数、赋值与 `_auto_capture_tick()` 里的门禁判断（恢复原 tick 语义）
+- `main.py`：删除 `_in_work_hours()` 与构造时传参
+- `config.yaml`：删除 `screenshot.work_hours_only`；`scheduler.work_hours_start/end` 保留但注释标明**不参与任何逻辑**
+  （原本就没有逻辑读取它们，这个门禁是唯一使用者）
+- `src/config_loader.py`：`DEFAULT_CONFIG` 移除 `work_hours_only`
+- README / TODO 同步
+
+即：自动截屏**全天**按 `auto_interval_minutes` 运行，不再看时段（手动热键与 `/api/capture` 本来就无限制）。
+
+验证：`load_config()` 中已无 `work_hours_only`；`ScreenshotCapture` 无 `should_capture` 属性；
+`_auto_capture_tick()` 在临时目录直接截出 1 张（无门禁，之前门禁开启时是 0 张）；`py_compile` 通过；服务已重启。
+
+代价（如实记录，不夸大）：全天每 10 分钟一次，单显示器理论上限 144 张/天 < `max_screenshots_per_day: 200`，不会触发删旧；
+夜间画面不变时被感知哈希去重，不会额外调 VLM。若以后接多显示器（每屏一张）会逼近 200 上限并触发删当天最早文件，届时需调高上限。

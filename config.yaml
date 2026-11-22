@@ -14,7 +14,6 @@ screenshot:
   storage_path: "data/screenshots" # 截图存储目录
   max_screenshots_per_day: 200   # 每日最大截图数（超出删旧）
   auto_start: true               # 启动时自动开启自动截屏（否则需手动点托盘/仪表盘）
-  work_hours_only: true          # 自动截屏仅限 scheduler.work_hours 时段内（09:00-20:00）；false = 全天 10 分钟一张
 
 # --- 隐私过滤 ---
 privacy:
@@ -95,8 +94,8 @@ privacy:
 
 # --- 调度设置 ---
 scheduler:
-  work_hours_start: "09:00"     # 工作开始时间
-  work_hours_end: "20:00"       # 工作结束时间
+  work_hours_start: "09:00"     # 仅作记录，不参与任何逻辑（自动截屏全天运行，日报按 work_days 定时）
+  work_hours_end: "20:00"       # 同上
   work_days: [0, 1, 2, 3, 4]   # 工作日 (0=周一, 6=周日)
   daily_report_time: "18:00"    # 日报生成时间
   weekly_report_day: 4          # 周报生成日 (0=周一 ... 4=周五)

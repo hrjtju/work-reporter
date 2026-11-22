@@ -19,7 +19,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_screenshots_per_day": 200,
         "vlm_auto": True,
         "auto_start": False,
-        "work_hours_only": False,
     },
     "privacy": {
         "app_blacklist": [],

@@ -4,7 +4,7 @@
 
 ## 功能
 
-- **自动截屏**：可配间隔（默认 10 分钟），多显示器，感知哈希去重；启动即自动开启（`screenshot.auto_start`），默认只在工作时段内截（`screenshot.work_hours_only`）
+- **自动截屏**：可配间隔（默认 10 分钟），多显示器，感知哈希去重；启动即自动开启（`screenshot.auto_start`），**全天不限时段**
 - **VLM 手动模式**：支持截图后不自动分析，改为手动点击「⚡ 分析」批量处理
 - **隐私保护**：三层过滤 — 应用黑名单 → 区域模糊 → OCR 敏感内容检测；自动模式下触发隐私的截图直接删除不留痕迹
 - **异步队列**：VLM 分析全异步执行，不阻塞截图流程
@@ -52,7 +52,6 @@ screenshot:
   pause_hotkey: "ctrl+shift+o"
   auto_interval_minutes: 10
   auto_start: true   # 启动即自动开启自动截屏（false = 需手动点托盘/仪表盘）
-  work_hours_only: true  # 自动截屏只在 scheduler.work_hours 时段内（false = 全天）
   vlm_auto: true     # true=自动 VLM 分析，false=手动点「⚡ 分析」
 
 vision_llm:
