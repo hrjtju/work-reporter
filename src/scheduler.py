@@ -130,6 +130,12 @@ class ReportScheduler:
                 target_date = date.today()
             logger.info("⏰ 日报定时任务触发 — %s", target_date)
             data = self.generator.aggregate_daily(target_date)
+            if self.config.get("skip_empty_reports", True) and not data.events and not data.total_screenshots:
+                logger.info(
+                    "⏭ 日报跳过 — %s 无事件也无截图（不生成空模板报告）",
+                    target_date,
+                )
+                return
             content = self.generator.generate_daily_with_llm(data)
             if self.on_report_generated:
                 self.on_report_generated("daily", content[:200])
@@ -148,6 +154,9 @@ class ReportScheduler:
                 week_start = today - timedelta(days=today.weekday())
             logger.info("⏰ 周报定时任务触发 — 起始周 %s", week_start)
             data = self.generator.aggregate_weekly(week_start)
+            if self.config.get("skip_empty_reports", True) and not data.all_events:
+                logger.info("⏭ 周报跳过 — %s 起的这一周无事件记录", week_start)
+                return
             content = self.generator.generate_weekly_with_llm(data)
             if self.on_report_generated:
                 self.on_report_generated("weekly", content[:200])

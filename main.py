@@ -114,6 +114,7 @@ class WorkReporterApp:
             auto_interval_minutes=self.config["screenshot"]["auto_interval_minutes"],
             on_capture=self._on_screenshot_captured,
             on_notify=self._on_notify,
+            should_capture=self._in_work_hours if self.config["screenshot"].get("work_hours_only", True) else None,
         )
 
         # 调度器
@@ -161,9 +162,12 @@ class WorkReporterApp:
                 )
                 # 检查服务是否可用
                 if self.vision_llm.check_health():
-                    self.logger.info("✅ Vision LLM 已连接: %s", vcfg["base_url"])
+                    self.logger.info("✅ Vision LLM 已连接: %s (%s)", vcfg["base_url"], vcfg.get("model"))
                 else:
-                    self.logger.warning("⚠ Vision LLM 服务不可用 (%s)，将使用规则引擎", vcfg["base_url"])
+                    self.logger.warning(
+                        "⚠ Vision LLM 健康检查未通过 (%s)，仍会尝试调用；失败时回退规则引擎",
+                        vcfg["base_url"],
+                    )
             except Exception as e:
                 self.logger.warning("⚠ Vision LLM 初始化失败: %s，将使用规则引擎", e)
 
@@ -210,12 +214,24 @@ class WorkReporterApp:
         self.logger.info("所有模块初始化完成")
         self._print_startup_info()
 
+    def _in_work_hours(self) -> bool:
+        """自动截屏时段门禁：仅当 scheduler.work_hours_start <= now < work_hours_end 时返回 True."""
+        sch = self.config.get("scheduler", {})
+        now = datetime.now().strftime("%H:%M")
+        start = sch.get("work_hours_start", "09:00")
+        end = sch.get("work_hours_end", "20:00")
+        return start <= now < end
+
     def _start_gpu_monitor(self) -> None:
         """启动 GPU 利用率监控线程，高负载时切换模型."""
         import subprocess
         import re as _re
 
         def _monitor():
+            fallback_model = self.config.get("text_llm", {}).get("gpu_fallback_model", "") or ""
+            if not fallback_model:
+                return  # 未配置降级模型（如云端 API），不启动监控
+            default_model = self.config.get("text_llm", {}).get("model", "")
             while not self._gpu_monitor_stop.wait(30):  # 每30秒检查
                 try:
                     result = subprocess.run(
@@ -227,13 +243,13 @@ class WorkReporterApp:
                         continue
                     gpu_pct = int(_re.search(r"\d+", result.stdout).group())
                     if gpu_pct > 50:
-                        if self.text_llm and self.text_llm.model_name != "gemma4:e2b":
-                            self.text_llm.switch_model("gemma4:e2b")
-                            self.logger.info("⚠ GPU %d%% > 50%%, 文本 LLM 降级为 gemma4:e2b", gpu_pct)
+                        if self.text_llm and self.text_llm.model_name != fallback_model:
+                            self.text_llm.switch_model(fallback_model)
+                            self.logger.info("⚠ GPU %d%% > 50%%, 文本 LLM 降级为 %s", gpu_pct, fallback_model)
                     else:
-                        if self.text_llm and self.text_llm.model_name != "gemma4:12b":
-                            self.text_llm.switch_model("gemma4:12b")
-                            self.logger.info("GPU %d%% ≤ 50%%, 文本 LLM 恢复为 gemma4:12b", gpu_pct)
+                        if self.text_llm and default_model and self.text_llm.model_name != default_model:
+                            self.text_llm.switch_model(default_model)
+                            self.logger.info("GPU %d%% ≤ 50%%, 文本 LLM 恢复为 %s", gpu_pct, default_model)
                 except Exception:
                     pass  # nvidia-smi 不可用时静默忽略
 
@@ -493,6 +509,16 @@ class WorkReporterApp:
 
         # 启动热键监听
         self.screenshot_capture.start()
+
+        # 按配置自动开启自动截屏（否则每次开机都要手动点托盘）
+        if self.config.get("screenshot", {}).get("auto_start", False):
+            self.screenshot_capture._start_auto_capture()
+            self.logger.info(
+                "   自动截屏: 已开启（间隔 %d 分钟）",
+                self.config["screenshot"].get("auto_interval_minutes", 10),
+            )
+        else:
+            self.logger.info("   自动截屏: 未开启（可在托盘菜单或仪表盘开启）")
 
         # 启动调度器
         self.scheduler.start()

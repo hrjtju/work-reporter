@@ -13,6 +13,8 @@ screenshot:
   duplicate_threshold: 5         # 感知哈希汉明距离阈值 (≤此值视为重复)
   storage_path: "data/screenshots" # 截图存储目录
   max_screenshots_per_day: 200   # 每日最大截图数（超出删旧）
+  auto_start: true               # 启动时自动开启自动截屏（否则需手动点托盘/仪表盘）
+  work_hours_only: true          # 自动截屏仅限 scheduler.work_hours 时段内（09:00-20:00）；false = 全天 10 分钟一张
 
 # --- 隐私过滤 ---
 privacy:
@@ -101,6 +103,7 @@ scheduler:
   weekly_report_time: "18:30"   # 周报生成时间
   cleanup_time: "02:00"         # 旧截图清理时间
   cleanup_keep_days: 14         # 保留最近N天的截图
+  skip_empty_reports: true      # 当天/本周零事件时跳过生成（不写空模板报告）
 
 # --- 事件存储 ---
 database:
@@ -113,25 +116,28 @@ report:
 
 # --- Web 仪表盘 ---
 web_dashboard:
-  port: 8765                   # 本地 HTTP 服务端口
-  auto_open: true              # 启动时自动打开浏览器
+  port: 8766                   # 本地 HTTP 服务端口（8765 已被 research_board_app 占用）
+  auto_open: false             # 启动时自动打开浏览器（开机自启时不希望每次都弹窗）
 
 # --- 视觉 LLM（截图分析） ---
+# deepseek-flash 支持图像输入（OpenAI 兼容 image_url）；key 从环境变量 DEEPSEEK_API_KEY 读取，
+# 不要在此文件写真实 key（config.yaml 已被 git 跟踪并推送到公开仓库）。
 vision_llm:
   enabled: true                     # 是否启用视觉分析
-  provider: "ollama"                # ollama | openai | vllm | llama_cpp
-  base_url: "http://localhost:11434/v1"  # Ollama 默认 API 地址
-  model: "gemma4:12b"               # Gemma 4 12B — 更大的模型，更好的分析质量
-  api_key: "ollama"                 # Ollama 不需要真实 key
-  timeout: 120                      # 请求超时秒数
-  max_retries: 3                    # 最大重试次数
+  provider: "openai"                # ollama | openai | vllm | llama_cpp
+  base_url: "https://api.deepseek.com/v1"
+  model: "deepseek-flash"           # DeepSeek V4.1 Flash（支持 text+image）
+  api_key: "${DEEPSEEK_API_KEY}"    # 由 config_loader 展开环境变量
+  timeout: 180                      # 请求超时秒数（推理模型较慢）
+  max_retries: 5                    # 本机到 api.deepseek.com 偶发连接重置，多给几次重试
 
 # --- 文本 LLM（日报/周报生成） ---
 text_llm:
   enabled: true                     # 是否启用 LLM 生成报告
-  provider: "ollama"
-  base_url: "http://localhost:11434/v1"
-  model: "gemma4:12b"               # 共用同一个模型
-  api_key: "ollama"
-  timeout: 120
-  max_retries: 3
+  provider: "openai"
+  base_url: "https://api.deepseek.com/v1"
+  model: "deepseek-flash"           # 共用同一个模型
+  api_key: "${DEEPSEEK_API_KEY}"
+  timeout: 180
+  max_retries: 5
+  gpu_fallback_model: ""            # 留空 = 不做 GPU 降级（原逻辑硬编码 ollama 模型名）

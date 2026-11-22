@@ -4,26 +4,43 @@
 
 ## 功能
 
-- **自动截屏**：可配间隔（默认 2 分钟），多显示器，感知哈希去重
+- **自动截屏**：可配间隔（默认 10 分钟），多显示器，感知哈希去重；启动即自动开启（`screenshot.auto_start`），默认只在工作时段内截（`screenshot.work_hours_only`）
 - **VLM 手动模式**：支持截图后不自动分析，改为手动点击「⚡ 分析」批量处理
 - **隐私保护**：三层过滤 — 应用黑名单 → 区域模糊 → OCR 敏感内容检测；自动模式下触发隐私的截图直接删除不留痕迹
 - **异步队列**：VLM 分析全异步执行，不阻塞截图流程
 - **工作记忆**：增量积累上下文，每 N 个事件 LLM 总结，注入后续分析 prompt
-- **智能报告**：每日 18:00 / 周五 18:30 生成 Markdown 报告，LLM 优先 + 模板兜底
+- **智能报告**：每日 18:00 / 周五 18:30 生成 Markdown 报告，LLM 优先 + 模板兜底；零事件时定时任务跳过（`scheduler.skip_empty_reports`）
 - **系统托盘**：右键菜单（截屏/暂停/自动/VLM 模式/日报/周报），气泡通知，图标状态切换
-- **Web 仪表盘**：`localhost:8765` 浅色主题，双栏布局，时间线 + 热力图 + LLM 输出 + 日志 Tab + Markdown 报告渲染
-- **GPU 监控**：后台检测 GPU 利用率，>50% 自动切换文本 LLM 到小模型
+- **Web 仪表盘**：`localhost:8766` 浅色主题，双栏布局，时间线 + 热力图 + LLM 输出 + 日志 Tab + Markdown 报告渲染
+- **GPU 监控**：后台检测 GPU 利用率，>50% 自动切换文本 LLM 到小模型（仅当配置了 `text_llm.gpu_fallback_model`）
 
 ## 快速开始
 
 ```bash
-uv sync                        # 安装依赖
-ollama pull gemma4:12b         # 拉取视觉模型
-ollama pull gemma4:e2b         # 拉取小模型（GPU 高负载降级用）
-uv run python main.py          # 启动
+uv sync                                    # 安装依赖
+export DEEPSEEK_API_KEY=sk-...             # Windows: setx DEEPSEEK_API_KEY "sk-..."
+.venv\Scripts\python.exe main.py           # 启动（调试用，前台看日志）
 ```
 
-浏览器打开 `http://localhost:8765`。
+浏览器打开 `http://localhost:8766`。
+
+**LLM 后端**：默认走 DeepSeek `deepseek-flash`（OpenAI 兼容，支持图像输入，`https://api.deepseek.com/v1`）。
+需要环境变量 `DEEPSEEK_API_KEY`；`config.yaml` 里写的是 `${DEEPSEEK_API_KEY}` 占位，由 `config_loader` 展开 ——
+**不要把真实 key 写进 `config.yaml`，该文件被 git 跟踪且仓库公开**。
+
+若想改回本地 Ollama：把 `vision_llm` / `text_llm` 的 `base_url` 换成 `http://localhost:11434/v1`、
+`model` 换成实际模型名、`api_key` 换成 `ollama` 即可。
+
+## 开机自启
+
+已注册 Windows 计划任务 `WorkReporter`（登录时以 `pythonw.exe main.py` 启动，工作目录为仓库根 `%USERPROFILE%\work-reporter` 这类本机路径，
+失败重启 3 次、无运行时长限制、单实例）：
+
+```powershell
+Start-ScheduledTask -TaskName 'WorkReporter'    # 立即启动
+Get-ScheduledTaskInfo -TaskName 'WorkReporter'  # 看上次运行结果
+schtasks /End /TN WorkReporter                  # 停掉
+```
 
 ## 配置
 
@@ -33,22 +50,34 @@ uv run python main.py          # 启动
 screenshot:
   hotkey: "ctrl+shift+alt+s"
   pause_hotkey: "ctrl+shift+o"
-  auto_interval_minutes: 2
-  vlm_auto: true  # true=自动 VLM 分析，false=手动点「⚡ 分析」
+  auto_interval_minutes: 10
+  auto_start: true   # 启动即自动开启自动截屏（false = 需手动点托盘/仪表盘）
+  work_hours_only: true  # 自动截屏只在 scheduler.work_hours 时段内（false = 全天）
+  vlm_auto: true     # true=自动 VLM 分析，false=手动点「⚡ 分析」
 
 vision_llm:
-  base_url: "http://localhost:11434/v1"
-  model: "gemma4:12b"
+  provider: "openai"
+  base_url: "https://api.deepseek.com/v1"
+  model: "deepseek-flash"
+  api_key: "${DEEPSEEK_API_KEY}"
+  timeout: 180
+  max_retries: 5
 
 text_llm:
-  base_url: "http://localhost:11434/v1"
-  model: "gemma4:12b"
+  base_url: "https://api.deepseek.com/v1"
+  model: "deepseek-flash"
+  api_key: "${DEEPSEEK_API_KEY}"
+  gpu_fallback_model: ""   # 留空 = 不做 GPU 降级
 
 web_dashboard:
-  port: 8765
+  port: 8766              # 8765 被 research_board_app 占用
+  auto_open: false        # 开机自启时不弹浏览器
+
+scheduler:
+  skip_empty_reports: true  # 当天/本周零事件时定时任务跳过，不写空模板报告
 ```
 
-> 自动截屏通过仪表盘按钮或托盘右键菜单开启/关闭，无快捷键。
+> 自动截屏除托盘/仪表盘切换外，`screenshot.auto_start: true` 时启动即开启。
 
 ## 活动分类
 
@@ -71,6 +100,7 @@ VLM 将截图归类为 9 种固定标签：
 - **左栏**：活动时间线（最新在上，无高度限制）+ 24 小时堆叠柱状热力图 + LLM 原始输出
 - **右栏**：日报面板，点击「生成日报」即时渲染 Markdown
 - 事件分类可手动调整（下拉菜单）
+- 常用 API：`POST /api/capture` 手动截屏、`POST /api/report/daily?date=YYYY-MM-DD` 生成某天日报、`GET /api/events/today/llm` 今日 LLM 事件
 
 ## 项目结构
 
@@ -101,4 +131,4 @@ work-reporter/
 
 ## 技术栈
 
-Python 3.13+ · uv · Ollama (gemma4:12b / gemma4:e2b) · mss · pynput · pystray · APScheduler · Pillow · imagehash · pytesseract · SQLite (WAL)
+Python 3.13+ · uv · DeepSeek `deepseek-flash`（OpenAI 兼容 API，可换回 Ollama/vLLM）· mss · pynput · pystray · APScheduler · Pillow · imagehash · pytesseract · SQLite (WAL)

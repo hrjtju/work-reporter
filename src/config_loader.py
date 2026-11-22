@@ -18,6 +18,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "storage_path": "data/screenshots",
         "max_screenshots_per_day": 200,
         "vlm_auto": True,
+        "auto_start": False,
+        "work_hours_only": False,
     },
     "privacy": {
         "app_blacklist": [],
@@ -34,10 +36,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "weekly_report_time": "18:30",
         "cleanup_time": "02:00",
         "cleanup_keep_days": 14,
+        "skip_empty_reports": True,
     },
     "database": {"path": "data/work_reporter.db"},
     "report": {"output_path": "reports", "format": "markdown"},
-    "web_dashboard": {"port": 8765, "auto_open": True},
+    "web_dashboard": {"port": 8766, "auto_open": True},
     "vision_llm": {
         "enabled": True,
         "provider": "ollama",
@@ -70,6 +73,17 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return result
 
 
+def _expand_env(value):
+    """递归展开字符串中的 ${VAR} / $VAR（用于 api_key 等不写进仓库的配置）."""
+    if isinstance(value, str):
+        return os.path.expandvars(value)
+    if isinstance(value, dict):
+        return {k: _expand_env(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_expand_env(v) for v in value]
+    return value
+
+
 def load_config(config_path: str | None = None) -> dict[str, Any]:
     """加载配置文件，返回合并默认值后的完整配置.
 
@@ -91,7 +105,7 @@ def load_config(config_path: str | None = None) -> dict[str, Any]:
             user_config = yaml.safe_load(f) or {}
         config = _deep_merge(config, user_config)
 
-    return config
+    return _expand_env(config)
 
 
 def validate_config(config: dict[str, Any]) -> list[str]:

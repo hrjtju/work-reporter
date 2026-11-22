@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from io import BytesIO
@@ -439,20 +440,30 @@ class VisionAnalyzer:
                         "max_tokens": 16384,
                         "temperature": 0.1,
                     },
-                    timeout=self.timeout,
+                    timeout=(10, self.timeout),
                 )
                 resp.raise_for_status()
                 data = resp.json()
                 self.call_count += 1
-                return data["choices"][0]["message"]["content"]
+                content = (data["choices"][0]["message"].get("content") or "").strip()
+                if not content:
+                    # 推理模型可能把 max_tokens 全用在思考上，content 为空 → 当作失败重试
+                    raise ValueError("empty content (可能思考占满了 max_tokens)")
+                return content
             except requests.exceptions.Timeout:
                 logger.warning("Vision API 超时 (尝试 %d/%d)", attempt + 1, self.max_retries)
                 if attempt == self.max_retries - 1:
                     raise
-            except Exception:
-                logger.warning("Vision API 调用失败 (尝试 %d/%d)", attempt + 1, self.max_retries)
+                time.sleep(min(2 ** attempt, 8))
+            except Exception as e:
+                logger.warning(
+                    "Vision API 调用失败 (尝试 %d/%d): %s",
+                    attempt + 1, self.max_retries, type(e).__name__,
+                )
                 if attempt == self.max_retries - 1:
                     raise
+                # 本机到云端偶发 connection reset，退避后再试，避免同一坏窗口连着撞
+                time.sleep(min(2 ** attempt, 8))
         return ""
 
     @staticmethod
@@ -498,18 +509,27 @@ class VisionAnalyzer:
                         "max_tokens": 8192,
                         "temperature": 0.3,
                     },
-                    timeout=self.timeout,
+                    timeout=(10, self.timeout),
                 )
                 resp.raise_for_status()
                 data = resp.json()
                 self.call_count += 1
-                return data["choices"][0]["message"]["content"]
+                content = (data["choices"][0]["message"].get("content") or "").strip()
+                if not content:
+                    raise ValueError("empty content (可能思考占满了 max_tokens)")
+                return content
             except requests.exceptions.Timeout:
                 if attempt == self.max_retries - 1:
                     raise
-            except Exception:
+                time.sleep(min(2 ** attempt, 8))
+            except Exception as e:
+                logger.warning(
+                    "Text API 调用失败 (尝试 %d/%d): %s",
+                    attempt + 1, self.max_retries, type(e).__name__,
+                )
                 if attempt == self.max_retries - 1:
                     raise
+                time.sleep(min(2 ** attempt, 8))
         raise RuntimeError("Text completion failed after max retries")
 
     def complete_text(self, prompt: str) -> str:
@@ -656,13 +676,32 @@ class VisionAnalyzer:
             return []
 
     def check_health(self) -> bool:
-        """检查 API 服务是否可用."""
+        """检查 API 服务是否可用.
+
+        先探 /models（Ollama/vLLM 等本地服务都支持）；若该端点不可用，
+        再用一次极简 chat 探测，避免把可用的云端 API 误报为不可用。
+        """
         try:
             resp = self._session.get(
                 f"{self.base_url}/models",
                 timeout=5,
             )
-            return resp.status_code == 200
+            if resp.status_code == 200:
+                return True
+        except Exception:
+            pass
+
+        try:
+            resp = self._session.post(
+                f"{self.base_url}/chat/completions",
+                json={
+                    "model": self.model_name,
+                    "messages": [{"role": "user", "content": "ping"}],
+                    "max_tokens": 1,
+                },
+                timeout=30,
+            )
+            return resp.status_code < 500
         except Exception:
             return False
 
