@@ -302,3 +302,34 @@ powershell.exe -NoProfile -Command "cd 'C:\...\work-reporter'; git push -u origi
 | 真实截图 3 张 | `skip=False` ✅ 不误杀 |
 | 单张耗时 | 1000×380 约 27–50ms；2560×1440 约 570ms（10 分钟一次，无压力） |
 | 端到端 | 服务重启后 `Layer3 OCR 门禁就绪`；`/api/status` `ocr_ready=true`；手动 `/api/capture` → 通过门禁 → VLM 正常分析入库 |
+
+### 五、销毁含敏感内容的备份（用户要求"销毁"）
+
+单纯 `rm` 不够：先做了二进制级残留普查，结果比预期严重 ——
+
+| 文件 | 处理前二进制命中 |
+|---|---|
+| `data/work_reporter.db`（主库） | 0 |
+| `data/work_reporter.db-wal` | **171 处** |
+| `data/backup_before_purge_*.db` | 48 处 |
+| `data/backup_before_purge_log_*.log` | 19 处 |
+
+**教训：SQLite 的 DELETE 不等于数据消失** —— 删除只把页标为空闲，原始内容仍留在 WAL 预写日志与空闲页里。
+正确销毁链：`PRAGMA wal_checkpoint(TRUNCATE)` → `PRAGMA secure_delete=ON` → `VACUUM INTO 新库`
+→ 旧库/WAL/SHM 用随机字节覆写 3 遍并 fsync 后删除 → 新库 replace 占位。
+
+重建后仍剩 3 处命中，追查发现**不是**被删的那 3 条，而是另外两条正常记录
+（在线讲座、手游日常）的 `context_note` / `raw_response` 字段 —— VLM 把"历史最近活动"
+写成了前一条敏感内容。属**交叉污染**：清洗这两个字段后表内残留归零，再 VACUUM/覆写一次，
+最终主库与 WAL 二进制命中 0。
+
+最后对 `data/screenshots/` 现存 **106 张**截图跑一遍 Layer3 门禁 OCR 复扫 → 0 命中（确认没有
+画面上残留在历史图片里的敏感内容）。
+
+行数保持一致（events 105 / screenshots 145 / daily 6 / weekly 1），功能未受影响。
+
+### 局限（如实记录）
+
+文件覆写只能覆盖逻辑扇区，**SSD 的 FTL / wear-leveling 不能保证物理擦除**旧块；
+要更强保证需要整盘加密（BitLocker）+ 丢弃密钥、或 `cipher /w` 清空闲空间、或物理销毁。
+本次做的是本机层面能做到的最大限度，不能对外声称"数据已不可恢复"。
