@@ -88,6 +88,19 @@ class ReportScheduler:
         )
         logger.info("日报定时: 每周 %s, %s", work_day_str, daily_time)
 
+        # 日报补齐任务：次日生成前一工作日的完整版（含凌晨 0-8 点，属前一天）
+        finalize_time = self.config.get("daily_report_finalize_time", "08:30")
+        fin_hour, fin_minute = map(int, finalize_time.split(":"))
+        self._aps.add_job(
+            self._finalize_daily_report_job,
+            "cron",
+            hour=fin_hour,
+            minute=fin_minute,
+            id="daily_report_finalize",
+            name="日报完整版补齐",
+        )
+        logger.info("日报补齐定时: 每天 %s（前一工作日完整版）", finalize_time)
+
         # 周报定时任务
         weekly_day = self.config.get("weekly_report_day", 4)  # 周五
         weekly_time = self.config.get("weekly_report_time", "18:30")
@@ -127,7 +140,7 @@ class ReportScheduler:
         """
         try:
             if target_date is None:
-                target_date = date.today()
+                target_date = self.store.current_workday()
             logger.info("⏰ 日报定时任务触发 — %s", target_date)
             data = self.generator.aggregate_daily(target_date)
             if self.config.get("skip_empty_reports", True) and not data.events and not data.total_screenshots:
@@ -141,6 +154,29 @@ class ReportScheduler:
                 self.on_report_generated("daily", content[:200])
         except Exception:
             logger.exception("日报生成失败")
+
+    def _finalize_daily_report_job(self) -> None:
+        """次日补生成前一工作日的完整日报（含凌晨），覆盖同名文件.
+
+        工作日界为 [D HH:00, D+1 HH:00)，所以 D 的完整数据要到 D+1 HH:00 才齐；
+        这里在界后半小时跑，把 18:00 的进度版重写为完整版。
+        """
+        try:
+            target = self.store.current_workday() - timedelta(days=1)
+            work_days = self.config.get("work_days", [0, 1, 2, 3, 4])
+            if target.weekday() not in work_days:
+                logger.info("⏭ 日报补齐跳过 — %s 不是配置的工作日", target)
+                return
+            logger.info("⏰ 日报补齐任务触发 — %s 完整版", target)
+            data = self.generator.aggregate_daily(target)
+            if self.config.get("skip_empty_reports", True) and not data.events and not data.total_screenshots:
+                logger.info("⏭ 日报补齐跳过 — %s 无事件也无截图", target)
+                return
+            content = self.generator.generate_daily_with_llm(data)
+            if self.on_report_generated:
+                self.on_report_generated("daily", content[:200])
+        except Exception:
+            logger.exception("日报补齐失败")
 
     def _generate_weekly_report_job(self, week_start: date | None = None) -> None:
         """周报生成定时任务.
@@ -213,7 +249,7 @@ class ReportScheduler:
     def get_next_report_times(self) -> dict[str, Optional[datetime]]:
         """获取下一次日报、周报、清理的执行时间."""
         result: dict[str, Optional[datetime]] = {}
-        for job_id in ["daily_report", "weekly_report", "cleanup"]:
+        for job_id in ["daily_report", "daily_report_finalize", "weekly_report", "cleanup"]:
             job = self._aps.get_job(job_id)
             result[job_id] = job.next_run_time if job else None
         return result

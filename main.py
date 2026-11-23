@@ -97,7 +97,8 @@ class WorkReporterApp:
             sys.exit(1)
 
         # 初始化模块
-        self.store = EventStore(self.config["database"]["path"])
+        _wd_start = str(self.config.get("scheduler", {}).get("workday_start", "08:00"))
+        self.store = EventStore(self.config["database"]["path"], workday_start_hour=int(_wd_start.split(":")[0]))
         self.generator = ReportGenerator(
             self.store,
             self.config["report"]["output_path"],
@@ -414,7 +415,7 @@ class WorkReporterApp:
 
     def _process_manual_vlm_batch(self) -> dict:
         """手动触发批量 VLM 处理（手动模式下调用）."""
-        today = date.today()
+        today = self.store.current_workday()
         rows = self.store.get_unprocessed_screenshots(today)
         if not rows:
             return {"processed": 0, "failed": 0, "message": "无待处理截图"}
@@ -448,7 +449,7 @@ class WorkReporterApp:
 
     def _get_status_text(self) -> str:
         """获取当前状态文本."""
-        today = date.today()
+        today = self.store.current_workday()
         ss_count = self.store.get_screenshot_count_for_date(today)
         evt_count = len(self.store.get_today_events())
 
@@ -483,7 +484,8 @@ class WorkReporterApp:
         for job_name, next_time in next_times.items():
             if next_time:
                 labels = {
-                    "daily_report": "📋 下次日报",
+                    "daily_report": "📋 下次日报(进度版)",
+                    "daily_report_finalize": "📋 下次日报(完整版)",
                     "weekly_report": "📊 下次周报",
                     "cleanup": "🧹 下次清理",
                 }

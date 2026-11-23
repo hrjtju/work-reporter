@@ -4,7 +4,8 @@ import logging
 import os
 import sqlite3
 import threading
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from datetime import time as dtime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -84,14 +85,30 @@ class EventStore:
     线程安全 — 每个线程使用独立的连接，写入操作使用互斥锁.
     """
 
-    def __init__(self, db_path: str = "data/work_reporter.db"):
+    def __init__(self, db_path: str = "data/work_reporter.db", workday_start_hour: int = 8):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        # 工作日界：D 日的工作日 = [D HH:00, D+1 HH:00)，凌晨归前一天
+        self.workday_start_hour = workday_start_hour
         self._write_lock = threading.Lock()
         self._local = threading.local()
 
         # 初始化数据库
         self._init_db()
+
+    def _workday_bounds(self, target_date: date) -> tuple[str, str]:
+        """返回该工作日 [D HH:00, D+1 HH:00) 的 ISO 字符串边界（左闭右开）."""
+        h = self.workday_start_hour
+        start = datetime.combine(target_date, dtime(h, 0, 0))
+        end = start + timedelta(days=1)
+        return start.isoformat(), end.isoformat()
+
+    def current_workday(self) -> date:
+        """当前所处的工作日（凌晨 HH:00 之前算前一天）."""
+        now = datetime.now()
+        if now.hour < self.workday_start_hour:
+            return (now - timedelta(days=1)).date()
+        return now.date()
 
     def _get_conn(self) -> sqlite3.Connection:
         """获取当前线程的数据库连接."""
@@ -168,30 +185,31 @@ class EventStore:
             return cursor.lastrowid
 
     def get_screenshots_for_date(self, target_date: date) -> list[dict]:
-        """获取指定日期的所有截图（非跳过、非重复）."""
+        """获取指定工作日的所有截图（非跳过、非重复）."""
         conn = self._get_conn()
-        date_str = target_date.isoformat()
+        start_iso, end_iso = self._workday_bounds(target_date)
         rows = conn.execute(
             """SELECT * FROM screenshots
-               WHERE date(timestamp) = ? AND skipped = 0 AND is_duplicate = 0
+               WHERE timestamp >= ? AND timestamp < ? AND skipped = 0 AND is_duplicate = 0
                ORDER BY timestamp""",
-            (date_str,),
+            (start_iso, end_iso),
         ).fetchall()
         return [dict(row) for row in rows]
 
     def get_screenshot_count_for_date(self, target_date: date) -> int:
-        """获取指定日期的有效截图数量."""
+        """获取指定工作日的有效截图数量."""
         conn = self._get_conn()
+        start_iso, end_iso = self._workday_bounds(target_date)
         row = conn.execute(
             """SELECT COUNT(*) as cnt FROM screenshots
-               WHERE date(timestamp) = ? AND skipped = 0 AND is_duplicate = 0""",
-            (target_date.isoformat(),),
+               WHERE timestamp >= ? AND timestamp < ? AND skipped = 0 AND is_duplicate = 0""",
+            (start_iso, end_iso),
         ).fetchone()
         return row["cnt"] if row else 0
 
     def get_today_screenshots(self) -> list[dict]:
-        """获取今天的有效截图."""
-        return self.get_screenshots_for_date(date.today())
+        """获取当前工作日的有效截图."""
+        return self.get_screenshots_for_date(self.current_workday())
 
     # ── 工作事件 ──────────────────────────────────────
 
@@ -250,32 +268,33 @@ class EventStore:
             return cursor.rowcount > 0
 
     def get_work_events_for_date(self, target_date: date) -> list[dict]:
-        """获取指定日期的工作事件."""
+        """获取指定工作日的事件（[D HH:00, D+1 HH:00)，凌晨归前一天）."""
         conn = self._get_conn()
+        start_iso, end_iso = self._workday_bounds(target_date)
         rows = conn.execute(
             """SELECT * FROM work_events
-               WHERE date(timestamp) = ?
+               WHERE timestamp >= ? AND timestamp < ?
                ORDER BY timestamp""",
-            (target_date.isoformat(),),
+            (start_iso, end_iso),
         ).fetchall()
         return [dict(row) for row in rows]
 
     def get_work_events_for_week(self, week_start: date) -> list[dict]:
-        """获取指定一周的工作事件（周一到周日）."""
-        from datetime import timedelta
-        week_end = week_start + timedelta(days=6)
+        """获取指定一周的事件（7 个工作日：[周一 HH:00, 下周一 HH:00)）."""
         conn = self._get_conn()
+        start_iso, _ = self._workday_bounds(week_start)
+        end_iso, _ = self._workday_bounds(week_start + timedelta(days=7))
         rows = conn.execute(
             """SELECT * FROM work_events
-               WHERE date(timestamp) BETWEEN ? AND ?
+               WHERE timestamp >= ? AND timestamp < ?
                ORDER BY timestamp""",
-            (week_start.isoformat(), week_end.isoformat()),
+            (start_iso, end_iso),
         ).fetchall()
         return [dict(row) for row in rows]
 
     def get_today_events(self) -> list[dict]:
-        """获取今天的工作事件."""
-        return self.get_work_events_for_date(date.today())
+        """获取当前工作日的事件."""
+        return self.get_work_events_for_date(self.current_workday())
 
     def get_event_category_stats(self, target_date: date) -> dict[str, int]:
         """获取指定日期的活动类别统计."""

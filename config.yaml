@@ -94,10 +94,12 @@ privacy:
 
 # --- 调度设置 ---
 scheduler:
-  work_hours_start: "09:00"     # 仅作记录，不参与任何逻辑（自动截屏全天运行，日报按 work_days 定时）
+  workday_start: "08:00"        # 工作日界：D 日的工作日 = [D 08:00, D+1 08:00)，凌晨归前一天
+  work_hours_start: "09:00"     # 仅作记录，不参与任何逻辑（自动截屏全天运行）
   work_hours_end: "20:00"       # 同上
   work_days: [0, 1, 2, 3, 4]   # 工作日 (0=周一, 6=周日)
-  daily_report_time: "18:00"    # 日报生成时间
+  daily_report_time: "18:00"    # 日报进度版（含到此刻）
+  daily_report_finalize_time: "08:30"  # 次日补生成前一工作日的完整版（含凌晨，覆盖同名文件）
   weekly_report_day: 4          # 周报生成日 (0=周一 ... 4=周五)
   weekly_report_time: "18:30"   # 周报生成时间
   cleanup_time: "02:00"         # 旧截图清理时间

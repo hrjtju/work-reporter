@@ -155,3 +155,77 @@ powershell.exe -NoProfile -Command "cd 'C:\...\work-reporter'; git push -u origi
 
 代价（如实记录，不夸大）：全天每 10 分钟一次，单显示器理论上限 144 张/天 < `max_screenshots_per_day: 200`，不会触发删旧；
 夜间画面不变时被感知哈希去重，不会额外调 VLM。若以后接多显示器（每屏一张）会逼近 200 上限并触发删当天最早文件，届时需调高上限。
+
+---
+
+## 2026-11-23 热力图时间轴改为"08:00 → 次日 08:00"，并统一配色
+
+### 用户报的问题
+
+"活动时间线最上面的时间视图中，这一天的凌晨会显示在最右边一条，并标上 24……这应该显示在前一天的最右边"；
+补充："时间视图的颜色映射也和下面列表中左侧色带的颜色映射（不一致）"。
+
+### 定位到的三个真实缺陷（`web_dashboard.py` 旧代码）
+
+1. `order = [8..23] + [0]`，**1–7 点的事件完全没有柱子**，算了时长但静默丢失
+2. 最右标 `24` 的桶装的是**当天 00:00–01:00**，语义错位（应是次日 0 点）
+3. 事件时长 prorate 的桶基准固定为当天 0 点，**23:xx 跨午夜的时长直接丢失**
+
+配色不一致：heatmap 用 JS `CAT_COLORS`（#7D55BF…），列表左色带用 CSS `--cat-*`（#4A90D9…），
+徽章更混搭（背景用前者的 rgb、前景色用后者）；另外 `CAT_CSS` 里"社交沟通"和"沟通协作"共用 `cat-comm`。
+
+### 用户决策
+
+- 时间窗口：**A = 08:00 → 次日 08:00（24 根柱）**
+- 跨日取数：后端一次性返回窗口内事件（不新增前端请求）
+- 日报口径：**也改成 8:00 日界**
+- 配色：**以列表左色带 `--cat-*` 为唯一色源**
+- "社交沟通"继续与"沟通协作"共用 `cat-comm`
+- 日报时点：**18:00 进度版 + 次日 08:30 完整版重写**
+
+### 改动
+
+**后端**
+- `event_store.py`：`__init__` 加 `workday_start_hour`（默认 8）；新增 `_workday_bounds(d)`（`[D 08:00, D+1 08:00)`）与
+  `current_workday()`（凌晨 8 点前算前一天）；`get_work_events_for_date` / `get_screenshots_for_date` /
+  `get_screenshot_count_for_date` / `get_work_events_for_week` 全部改成窗口查询（原来用 `date(timestamp) = ?`）；
+  `get_today_events` / `get_today_screenshots` 用 `current_workday()`
+- `report_generator.py`：无需改动（经 store 方法自动窗口化）
+- `scheduler.py`：日报 job 默认 target 改 `store.current_workday()`；新增 `daily_report_finalize` job，
+  每天 `daily_report_finalize_time`（默认 08:30）生成 `current_workday() - 1` 的完整版（`insert_daily_report`
+  是 upsert、`_save_report` 覆盖同名文件，所以自然重写进度版）；`get_next_report_times` 加该 job
+- `web_dashboard.py`（后端）：所有 `date.today()` 默认值改 `app.store.current_workday()`；`/api/status` 新增
+  `workday` / `workday_start_hour` 字段
+- `main.py`：`EventStore` 注入 `workday_start_hour`（读 `scheduler.workday_start`）；状态文本与手动批处理改用
+  `current_workday()`；状态里补"下次日报(完整版)"标签
+- `config.yaml`：新增 `scheduler.workday_start: "08:00"`、`scheduler.daily_report_finalize_time: "08:30"`
+
+**前端**
+- `renderHeatmap` 重写：桶基准 = `workdayBaseMs(currentDate)`（D 08:00），24 桶对应 08:00…23:00 + 次日 00:00…07:00；
+  跨午夜 prorate 天然正确；`endMs` 按窗口末端截断；标签 `08/12/16/20/24/04`，tooltip 对次日小时显示"次日 0X:00"
+- 配色：删除硬编码 `CAT_COLORS`，改为 `initCatColors()` 页面加载时从 `--cat-*` 读一次；徽章背景改
+  `color-mix(in srgb, var(--cat-*) 14%, transparent)`
+- `currentDate` 默认 null（跟随后端 `current_workday`，跨过工作日界自动跳到新工作日）；用户手动翻日期后 `datePinned`
+- 新增 `?date=YYYY-MM-DD` 直链
+
+### 验证
+
+1. **窗口查询**：日历日 07-01 有 44 条、07-02 有 2 条（00:06 等）→ 工作日 07-01 窗口返回 **46 条**（合并凌晨），工作日 07-02 返回 0 条
+2. **聚合**：`aggregate_daily(2026-11-22)` = 38 事件 / 39 截图，末条 `2026-11-23T00:52`（含凌晨）；
+   `2026-11-23` = 3 事件（10:14 起，08:00 界之后）
+3. **DOM 实测**（Edge headless `--dump-dom`，`?date=2026-11-22`）：23 根可见柱的 tooltip 小时依次为
+   14:00/15:00/…/23:00/**24:00**，索引 16 的桶确实是「24:00 — 开发创作 47 分钟 / 研究学习 10 分钟」
+   → 凌晨 00:11–00:52 正确落在 24:00 桶（= 次日 0 点），不再塞在最右一根的语义错位里
+4. **配色一致**：DOM 中 heatmap 用色集合 `{#4A90D9,#2ecc71,#9b59b6,#7B68EE,#95a5a6}` 与列表 `event-item cat-*`
+   类集合（cat-code/cat-doc/cat-browse/cat-learn/cat-other）以及 CSS 变量值完全对应
+5. `py_compile` 全部通过；抽出 `<script>` 段用 `node --check` 通过；服务重启后 `/api/status` 返回 `workday=2026-11-23`
+6. 截图（`data/_heat_2026-11-22.png`，验证后已删）人工复核：轴标签 08:00/12:00/16:00/20:00/24:00/04:00，凌晨数据在最右段
+
+### 问题记录 / 注意
+
+- 周报仍按"周一 08:00 → 下周一 08:00"窗口，但生成时点是**周五 18:30**，所以周五 18:30 之后到周六 08:00 的内容
+  进不了本周周报（下周才可补）。要不要把周报也挪到周一早上生成，待用户决定。
+- 热力图/日报现在都按 8:00 界，但**截图清理**（`delete_old_screenshots`）仍按日历日 `date(timestamp) < ?`，
+  语义上略微不齐但对"删 14 天前"这类粗粒度操作无影响，未改。
+- 验证时发现 `curl http://127.0.0.1:8766` 会因环境变量 `https_proxy=127.0.0.1:7890`（Clash）返回 **502**，
+  排查本地服务要加 `--noproxy '*'`，否则会误判服务挂了。

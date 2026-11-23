@@ -79,15 +79,15 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .cat-select:focus { outline:2px solid var(--accent-soft); border-color:var(--accent); }
   .project-tag { font-size:11px; color:var(--accent); background:var(--accent-soft); padding:1px 6px; border-radius:4px; }
   .badge { display:inline-block; padding:1px 7px; border-radius:4px; font-size:10px; font-weight:600; }
-  .badge-code { background:rgba(125,85,191,0.12); color:var(--cat-code); }
-  .badge-doc { background:rgba(156,150,148,0.12); color:var(--cat-doc); }
-  .badge-comm { background:rgba(202,118,70,0.12); color:var(--cat-comm); }
-  .badge-browse { background:rgba(146,49,48,0.12); color:var(--cat-browse); }
-  .badge-meeting { background:rgba(101,227,200,0.12); color:var(--cat-meeting); }
-  .badge-design { background:rgba(151,53,148,0.12); color:var(--cat-design); }
-  .badge-learn { background:rgba(90,147,205,0.12); color:var(--cat-learn); }
-  .badge-misc { background:rgba(80,194,89,0.12); color:var(--cat-misc); }
-  .badge-other { background:rgba(212,230,90,0.12); color:var(--cat-other); }
+  .badge-code { background:color-mix(in srgb, var(--cat-code) 14%, transparent); color:var(--cat-code); }
+  .badge-doc { background:color-mix(in srgb, var(--cat-doc) 14%, transparent); color:var(--cat-doc); }
+  .badge-comm { background:color-mix(in srgb, var(--cat-comm) 14%, transparent); color:var(--cat-comm); }
+  .badge-browse { background:color-mix(in srgb, var(--cat-browse) 14%, transparent); color:var(--cat-browse); }
+  .badge-meeting { background:color-mix(in srgb, var(--cat-meeting) 14%, transparent); color:var(--cat-meeting); }
+  .badge-design { background:color-mix(in srgb, var(--cat-design) 14%, transparent); color:var(--cat-design); }
+  .badge-learn { background:color-mix(in srgb, var(--cat-learn) 14%, transparent); color:var(--cat-learn); }
+  .badge-misc { background:color-mix(in srgb, var(--cat-misc) 14%, transparent); color:var(--cat-misc); }
+  .badge-other { background:color-mix(in srgb, var(--cat-other) 14%, transparent); color:var(--cat-other); }
 
   .heatmap-container { margin-bottom:14px; display:flex; flex-direction:column; align-items:center; }
   .heatmap-legend { display:flex; gap:10px; margin-bottom:8px; font-size:11px; color:var(--text2); flex-wrap:wrap; justify-content:center; }
@@ -304,20 +304,33 @@ async function changeCategory(id, cat) {
   } catch(e) { console.error(e); }
 }
 
-// 类别到颜色的映射（与 CSS 变量 --cat-* 保持一致）
-var CAT_COLORS = {
-  '开发创作': '#7D55BF',
-  '阅读浏览': '#9C9694',
-  '沟通协作': '#CA7646',
-  '复盘分析': '#923130',
-  '会议讨论': '#65E3C8',
-  '设计绘图': '#973594',
-  '研究学习': '#5A93CD',
-  '社交沟通': '#f39c12',
-  '娱乐休闲': '#50C259',
-  '其他': '#D4E65A',
-};
-function getCatColor(cat) { return CAT_COLORS[cat] || '#9C9694'; }
+// 类别 → 颜色：唯一色源是 CSS 变量 --cat-*（列表左色带 / 徽章 / 热力图共用同一套）
+var CAT_COLORS = {};
+function initCatColors() {
+  var cs = getComputedStyle(document.documentElement);
+  for (var cat in CAT_CSS) {
+    var v = cs.getPropertyValue('--' + CAT_CSS[cat]).trim();
+    if (v) CAT_COLORS[cat] = v;
+  }
+}
+function getCatColor(cat) { return CAT_COLORS[cat] || getComputedStyle(document.documentElement).getPropertyValue('--cat-misc').trim(); }
+
+// 工作日界小时：与 config.yaml 的 scheduler.workday_start 一致（08:00）
+// 视图区间 = [D 08:00, D+1 08:00)，共 24 桶；凌晨 00-08 点归前一天的最右段
+var WORKDAY_START = 8;
+var HEAT_BUCKETS = 24;
+
+function workdayBaseMs(dateStr) {
+  var p = String(dateStr).split('-');
+  return new Date(+p[0], +p[1] - 1, +p[2], WORKDAY_START, 0, 0, 0).getTime();
+}
+
+function bucketHourLabel(idx, withNextDay) {
+  var hr = (WORKDAY_START + idx) % 24;
+  var label = hr === 0 ? '24' : String(hr).padStart(2, '0');
+  if (withNextDay && idx > HEAT_BUCKETS - WORKDAY_START) return '次日 ' + label + ':00';
+  return label + ':00';
+}
 
 function renderHeatmap(events) {
   var DEFAULT_MIN = 5;   // 最后一个事件的默认时长（分钟）
@@ -325,47 +338,46 @@ function renderHeatmap(events) {
   var MAX_BAR_H = 120;   // 柱状条最大高度（px）
   var MIN_SEG_H = 2;     // 分段最小高度（px）
 
-  // 1. 按小时×类别累计时长
+  var baseMs = workdayBaseMs(currentDate || new Date().toLocaleDateString('sv-SE'));
+  var windowEndMs = baseMs + HEAT_BUCKETS * 3600000;
+
+  // 1. 按「工作日小时桶」× 类别累计时长
   var hourData = {};
   var allCats = {};
-  for (var h = 0; h < 24; h++) { hourData[h] = {}; }
+  for (var b = 0; b < HEAT_BUCKETS; b++) { hourData[b] = {}; }
 
   for (var i = 0; i < events.length; i++) {
     var e = events[i];
     if (!e.timestamp) continue;
-    var ts = new Date(e.timestamp);
+    var startMs = new Date(e.timestamp).getTime();
     var cat = e.category || '其他';
     allCats[cat] = true;
 
-    // 计算时长起止：到下一事件的时间差，上限 MAX_GAP
-    var startMs = ts.getTime();
+    // 时长：到下一事件的时间差，上限 MAX_GAP；跨窗口末端截断
     var endMs;
     if (i + 1 < events.length && events[i + 1].timestamp) {
-      var nextTs = new Date(events[i + 1].timestamp);
-      endMs = Math.min(startMs + MAX_GAP * 60000, nextTs.getTime());
+      endMs = Math.min(startMs + MAX_GAP * 60000, new Date(events[i + 1].timestamp).getTime());
     } else {
       endMs = startMs + DEFAULT_MIN * 60000;
     }
     if (endMs <= startMs) endMs = startMs + 60000;
+    endMs = Math.min(endMs, windowEndMs);
 
-    // 将时长 prorate 进所有涉及的小时桶（每小时桶只计入该小时内的有效分钟数）
-    var baseMs = new Date(ts.getFullYear(), ts.getMonth(), ts.getDate()).getTime();
-    for (var h = 0; h < 24; h++) {
-      var hourStartMs = baseMs + h * 3600 * 1000;
-      var hourEndMs = hourStartMs + 3600 * 1000;
+    // 将时长 prorate 进所有涉及的小时桶（跨午夜天然正确，因为桶以工作日界为基准）
+    for (var b = 0; b < HEAT_BUCKETS; b++) {
+      var hourStartMs = baseMs + b * 3600000;
+      var hourEndMs = hourStartMs + 3600000;
       var overlapMs = Math.max(0, Math.min(endMs, hourEndMs) - Math.max(startMs, hourStartMs));
       var mins = overlapMs / 60000;
-      if (mins > 0) {
-        hourData[h][cat] = (hourData[h][cat] || 0) + mins;
-      }
+      if (mins > 0) hourData[b][cat] = (hourData[b][cat] || 0) + mins;
     }
   }
 
-  // 2. 找出所有小时中的最大累计时长（用于归一化）
+  // 2. 归一化基准
   var maxTotal = 0;
-  for (var h = 0; h < 24; h++) {
+  for (var b = 0; b < HEAT_BUCKETS; b++) {
     var sum = 0;
-    for (var c in hourData[h]) { sum += hourData[h][c]; }
+    for (var c in hourData[b]) { sum += hourData[b][c]; }
     if (sum > maxTotal) maxTotal = sum;
   }
   if (maxTotal === 0) maxTotal = 1;
@@ -373,7 +385,7 @@ function renderHeatmap(events) {
   // 3. 类别排序（保证各柱颜色顺序一致）
   var catList = Object.keys(allCats).sort();
 
-  // 4. 渲染图例
+  // 4. 图例
   var html = '<div class="heatmap-legend">';
   catList.forEach(function(cat) {
     html += '<div class="legend-item">';
@@ -383,36 +395,30 @@ function renderHeatmap(events) {
   });
   html += '</div>';
 
-  // 5. 渲染柱状条：8点→23点→24点(0点)
+  // 5. 柱状条：08:00 → 次日 07:00（最右标 24 的那根是次日 00:00）
   html += '<div class="heatmap-bars">';
-  var order = [];
-  for (var h = 8; h < 24; h++) order.push(h);
-  order.push(0); // 0点显示为24点，放在最右
-
-  order.forEach(function(h) {
+  for (var b = 0; b < HEAT_BUCKETS; b++) {
     var totalH = 0;
-    for (var c in hourData[h]) { totalH += hourData[h][c]; }
-    var label = h === 0 ? '24' : String(h).padStart(2, '0');
+    for (var c in hourData[b]) { totalH += hourData[b][c]; }
+    var label = bucketHourLabel(b, false);
 
     html += '<div class="heatmap-bar-col">';
     html += '<div class="heatmap-bar">';
-
     if (totalH > 0) {
       catList.forEach(function(cat) {
-        var mins = hourData[h][cat] || 0;
+        var mins = hourData[b][cat] || 0;
         if (mins > 0) {
           var segH = Math.max(MIN_SEG_H, Math.round((mins / maxTotal) * MAX_BAR_H));
-          var tip = (h === 0 ? '24' : String(h).padStart(2, '0')) + ':00 — ' + cat + ': ' + Math.round(mins) + ' 分钟';
+          var tip = bucketHourLabel(b, true) + ' — ' + cat + ': ' + Math.round(mins) + ' 分钟';
           html += '<div class="heatmap-seg" style="height:' + segH + 'px; background:' + getCatColor(cat) + ';" title="' + tip + '"></div>';
         }
       });
     }
-
     html += '</div>';
-    var showLabel = (h === 8 || h === 12 || h === 16 || h === 20 || h === 0);
+    var showLabel = (b % 4 === 0);   // 08 / 12 / 16 / 20 / 24 / 04
     html += '<div class="heatmap-label' + (showLabel ? ' heatmap-label-bold' : '') + '">' + (showLabel ? label : '') + '</div>';
     html += '</div>';
-  });
+  }
   html += '</div>';
 
   $('heatmapBar').innerHTML = html;
@@ -591,10 +597,14 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-var currentDate = new Date().toISOString().slice(0, 10);
+// 支持 ?date=YYYY-MM-DD 直链（方便分享/回看某一天）
+var _urlDate = (new URLSearchParams(location.search)).get('date');
+var currentDate = (_urlDate && /^\d{4}-\d{2}-\d{2}$/.test(_urlDate)) ? _urlDate : null;
+var datePinned = !!currentDate;   // null = 跟随后端 current_workday（跨过工作日界会自动跳到新工作日）
 
 function onDateChanged() {
   currentDate = $('datePicker').value;
+  datePinned = true;
   refresh();
 }
 
@@ -602,6 +612,7 @@ function navigateDate(delta) {
   var d = new Date(currentDate);
   d.setDate(d.getDate() + delta);
   currentDate = d.toISOString().slice(0, 10);
+  datePinned = true;
   $('datePicker').value = currentDate;
   refresh();
 }
@@ -628,10 +639,11 @@ function toggleVlmAuto() {
 }
 
 async function refresh() {
-  $('dateLabel').textContent = fmtDate(new Date(currentDate));
-  $('datePicker').value = currentDate;
   try {
-    var status = await fetchJSON(API+'/status?date='+currentDate);
+    var status = await fetchJSON(API+'/status?date='+(currentDate||''));
+    if (!datePinned || !currentDate) currentDate = status.workday || currentDate;
+    $('dateLabel').textContent = fmtDate(new Date(currentDate));
+    $('datePicker').value = currentDate;
     $('ssCount').textContent = status.today_screenshots;
     $('evtCount').textContent = status.today_events;
     $('privSkip').textContent = status.privacy_skips;
@@ -677,6 +689,7 @@ async function refresh() {
   } catch(e) { console.error(e); }
 }
 
+initCatColors();
 refresh();
 setInterval(refresh, 15000);
 </script>
@@ -842,8 +855,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not app:
             self._send_json({"error": "App not ready"}, 503)
             return
-        target_date = self._parse_date() or date.today()
+        target_date = self._parse_date() or app.store.current_workday()
         self._send_json({
+            "workday": app.store.current_workday().isoformat(),
+            "workday_start_hour": app.store.workday_start_hour,
             "is_paused": app.screenshot_capture.is_paused,
             "is_auto": app.screenshot_capture.is_auto,
             "capture_mode": app.screenshot_capture.capture_mode,
@@ -957,7 +972,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not app:
             self._send_json({"error": "App not ready"}, 503)
             return
-        target_date = self._parse_date() or date.today()
+        target_date = self._parse_date() or app.store.current_workday()
         events = app.store.get_work_events_for_date(target_date)
         self._send_json(events)
 
@@ -967,7 +982,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not app:
             self._send_json({"error": "App not ready"}, 503)
             return
-        target_date = self._parse_date() or date.today()
+        target_date = self._parse_date() or app.store.current_workday()
         events = app.store.get_work_events_for_date(target_date)
         # 只返回有 LLM 分析的事件，精简字段
         result = []
@@ -1000,7 +1015,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         self._send_json({
             "privacy": app.privacy.get_stats(),
-            "today_screenshots": app.store.get_screenshot_count_for_date(date.today()),
+            "today_screenshots": app.store.get_screenshot_count_for_date(app.store.current_workday()),
         })
 
     def _api_reports(self) -> None:
@@ -1099,7 +1114,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not app:
             self._send_json({"error": "App not ready"}, 503)
             return
-        today = date.today()
+        today = app.store.current_workday()
         report = app.store.get_daily_report(today)
         if report:
             self._send_json({"content": report.get("content", "")})
@@ -1112,7 +1127,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not app:
             self._send_json({"error": "App not ready"}, 503)
             return
-        target_date = self._parse_date() or date.today()
+        target_date = self._parse_date() or app.store.current_workday()
         report = app.store.get_daily_report(target_date)
         if report:
             self._send_json({"content": report.get("content", "")})
@@ -1126,7 +1141,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "App not ready"}, 503)
             return
         try:
-            target_date = self._parse_date() or date.today()
+            target_date = self._parse_date() or app.store.current_workday()
             content = app.scheduler.generate_daily_report_now(target_date)
             self._send_json({
                 "success": True,
