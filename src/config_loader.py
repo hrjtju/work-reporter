@@ -23,7 +23,17 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "privacy": {
         "app_blacklist": [],
         "blur_regions": [],
-        "content_detection": {"enabled": False, "patterns": {}},
+        "content_detection": {
+            "enabled": False,
+            "engine": "windows_ocr",
+            "language": "zh-Hans-CN",
+            "tesseract_language": "chi_sim+eng",
+            "max_image_dim": 4000,
+            "fail_closed": False,
+            "on_hit": "delete",
+            "sensitive_keywords": [],
+            "patterns": {},
+        },
         "title_blacklist": [],
     },
     "scheduler": {

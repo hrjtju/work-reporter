@@ -229,3 +229,76 @@ powershell.exe -NoProfile -Command "cd 'C:\...\work-reporter'; git push -u origi
   语义上略微不齐但对"删 14 天前"这类粗粒度操作无影响，未改。
 - 验证时发现 `curl http://127.0.0.1:8766` 会因环境变量 `https_proxy=127.0.0.1:7890`（Clash）返回 **502**，
   排查本地服务要加 `--noproxy '*'`，否则会误判服务挂了。
+
+---
+
+## 2026-11-23 清理已泄漏条目 + 上线 OCR 内容门禁（Layer 3）
+
+### 背景
+
+用户报告：在门禁上线前，云端 LLM 已经分析过成人内容并入库，要求删除这些条目。
+同时要求新增 OCR 门禁：检测到隐私 / 成人 / R18 内容不发送云端 LLM。
+
+### 一、清理已泄漏条目
+
+用关键词扫描 `work_events`（106 条），初筛命中 5 条，其中 2 条是**误报，已排除**：
+
+- 匹配 `jav` 的实际是 `JavaScript`（一条代码调试事件）
+- 匹配 `中出` 的实际是 `中出现了微波炉`（一条 B 站视频事件）
+
+二次用更精确的站点/组合词扫描确认，真正命中 3 条（同日 10:58–11:19 的成人站点浏览/播放记录）。处置：
+
+1. 先备份 DB：`data/backup_before_purge_20261123_150108.db`（sqlite backup API，425,984 bytes）
+2. 删除 `work_events` 3 条 + `screenshots` 3 条（106→103、146→143）
+3. 对应截图文件经核对**已不在磁盘**（历史 14 天清理已删），无需再删
+4. 核对 `daily_reports`（6 份）/ `weekly_reports`（1 份）/ `reports/` 目录：**均不含**相关内容，无需重写
+5. 运行日志 `data/work_reporter.log` 有 12 行含相关站点原文（VLM 原始响应块），
+   停服后按"整块 VLM 原始响应"过滤删除（27956 → 27944 行），备份留
+   `data/backup_before_purge_log_before_purge.log`
+6. 验证：关键词扫描残留 0 命中
+
+**注意**：两个备份文件里仍含被删内容，是否销毁由用户决定（`data/` 不进 git）。
+
+### 二、OCR 内容门禁
+
+用户决策：OCR 引擎 = **Windows 内置 OCR**；成人检测 = **只做 OCR 文本关键词**；命中处置 = **整图删除**。
+
+实现（`src/privacy_filter.py` Layer3 重写）：
+
+- 后端：`winrt` 调 `Windows.Media.Ocr`（系统 `zh-Hans-CN` 语言包，实测 2560×1440 约 0.57s/张），
+  保留 `engine: tesseract` 分支与回退；初始化时 `_probe_ocr_backend()` 探测能力并记日志
+- **中文归一化**（关键坑）：Windows OCR 把中文按字切分加空格（"训练题" → "训 练 题"），
+  不做 CJK 空格归一化则中文关键词 100% 失配、门禁形同虚设 → `normalize_ocr_text()` 处理
+- **ASCII 关键词按词边界匹配**，否则 `jav` 命中 `JavaScript`（清理阶段实测到该误报）
+- `process()` 顺序改为 Layer1 → **Layer3 在原图上判定** → Layer2 区域模糊 → 落盘。
+  先模糊会降低识别率，所以门禁必须看原图；通过门禁的图仍是模糊版上云
+- 命中 → `should_skip=True`，上层自动模式删除截图、不入 VLM 队列 → 内容不出本机
+- `fail_closed` 开关：OCR 不可用时默认告警放行（`false`），可改 `true` 变成一律拦截
+- 配置：`engine` / `language` / `tesseract_language` / `max_image_dim` / `fail_closed` / `on_hit` /
+  `sensitive_keywords`（41 词，成人+R18+隐私）/ `patterns`（仅留 id_card / bank_card / api_key）；
+  `email / phone_cn / ip_address / password_dots` 误伤率过高移出门禁并注释说明
+- 依赖：`pyproject.toml` 加 8 个 `winrt-*` 包（`sys_platform == 'win32'`）
+- 可观测：启动日志打 `Layer3 OCR 门禁就绪: windows_ocr / zh-Hans-CN`；`/api/status` 增
+  `ocr_ready` / `ocr_status`；状态文本增 `🔒 OCR 门禁: ✅ 就绪 (...)`；OCR 连续失败 3 次打 ERROR
+
+### 三、踩到的坑（值得记）
+
+- **`asyncio.run()` 只接受 coroutine**：`engine.recognize_async(sb)` 返回 `IAsyncOperation`（仅 awaitable），
+  直接传给 `asyncio.run()` 抛 `TypeError`，被 `except` 吞成空字符串 →
+  **门禁静默放行所有图**（第一版测试就是这么假通过的：4 张脏图全 `skip=False` 且耗时只有 20ms）。
+  必须包成 `async def _recognize(): return await ...` 再 `asyncio.run()`。
+  教训：门禁类功能"没命中"必须与"没执行"可区分，事后加了失败计数与 ERROR 日志
+- Windows OCR 的字间空格、ASCII 词边界误伤（`jav`），都是先写测试图跑出来的，靠读代码发现不了
+- 排查本地 HTTP 服务要加 `curl --noproxy '*'`（环境变量 `https_proxy` 会把它拦成 502）
+
+### 四、验证
+
+| 用例 | 结果 |
+|---|---|
+| 中文成人词图（成人视频/里番/R18） | `skip=True`，命中 3 项 |
+| 成人站点+编号图 | `skip=True`，命中 2 项 |
+| 银行卡号+身份证号图 | `skip=True`，命中 3 项（含 id_card / bank_card 正则） |
+| 干净图（含 "JavaScript"） | `skip=False` ✅ 不误伤 |
+| 真实截图 3 张 | `skip=False` ✅ 不误杀 |
+| 单张耗时 | 1000×380 约 27–50ms；2560×1440 约 570ms（10 分钟一次，无压力） |
+| 端到端 | 服务重启后 `Layer3 OCR 门禁就绪`；`/api/status` `ocr_ready=true`；手动 `/api/capture` → 通过门禁 → VLM 正常分析入库 |

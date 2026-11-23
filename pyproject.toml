@@ -17,4 +17,13 @@ dependencies = [
     "opencv-python-headless>=4.8.0",
     "pynput>=1.7.0",
     "requests>=2.31.0",
+    # Layer3 OCR 门禁：Windows 内置 OCR（Windows.Media.Ocr）
+    "winrt-runtime; sys_platform == 'win32'",
+    "winrt-Windows.Foundation; sys_platform == 'win32'",
+    "winrt-Windows.Foundation.Collections; sys_platform == 'win32'",
+    "winrt-Windows.Globalization; sys_platform == 'win32'",
+    "winrt-Windows.Graphics.Imaging; sys_platform == 'win32'",
+    "winrt-Windows.Media.Ocr; sys_platform == 'win32'",
+    "winrt-Windows.Storage; sys_platform == 'win32'",
+    "winrt-Windows.Storage.Streams; sys_platform == 'win32'",
 ]

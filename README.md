@@ -6,7 +6,7 @@
 
 - **自动截屏**：可配间隔（默认 10 分钟），多显示器，感知哈希去重；启动即自动开启（`screenshot.auto_start`），**全天不限时段**
 - **VLM 手动模式**：支持截图后不自动分析，改为手动点击「⚡ 分析」批量处理
-- **隐私保护**：三层过滤 — 应用黑名单 → 区域模糊 → OCR 敏感内容检测；自动模式下触发隐私的截图直接删除不留痕迹
+- **隐私保护**：三层过滤 — 应用黑名单 → 区域模糊 → **OCR 内容门禁**（隐私 / 成人 / R18 命中即整图删除，不送云端 LLM）
 - **异步队列**：VLM 分析全异步执行，不阻塞截图流程
 - **工作记忆**：增量积累上下文，每 N 个事件 LLM 总结，注入后续分析 prompt
 - **智能报告**：每日 18:00 / 周五 18:30 生成 Markdown 报告，LLM 优先 + 模板兜底；零事件时定时任务跳过（`scheduler.skip_empty_reports`）
@@ -77,6 +77,34 @@ scheduler:
 ```
 
 > 自动截屏除托盘/仪表盘切换外，`screenshot.auto_start: true` 时启动即开启。
+
+## OCR 内容门禁（Layer 3）
+
+截图在**送去云端 LLM 之前**先本地 OCR，命中敏感内容直接按 `on_hit` 处理（默认整图删除、不留事件），
+保证隐私 / 成人 / R18 内容不会离开本机。
+
+```yaml
+privacy:
+  content_detection:
+    enabled: true
+    engine: "windows_ocr"        # Windows 内置 OCR（需系统语言包）| tesseract（需装二进制）
+    language: "zh-Hans-CN"
+    fail_closed: false           # OCR 不可用时：false=告警后放行，true=一律拦截
+    on_hit: "delete"             # 命中后整图删除
+    keyword_file: "data/sensitive_keywords.txt"  # 完整词表放本地不跟踪文件（一行一词）
+    sensitive_keywords: [...]    # 仓库内只保留通用示例，两者会合并去重
+    patterns: {id_card, bank_card, api_key}   # 强隐私正则
+```
+
+要点：
+
+- **中文归一化**：Windows OCR 会把中文按字切分插空格（"训练题" → "训 练 题"），
+  所以匹配前统一去掉 CJK 之间的空格，否则中文关键词永远匹配不到（这是本仓库踩过的坑）
+- **ASCII 关键词走词边界**，避免 `jav` 命中 `JavaScript`
+- **OCR 在模糊前的原图上判定**（先模糊会降低识别率），通过门禁的图才做区域模糊再上云
+- 门禁状态见启动日志 `Layer3 OCR 门禁就绪: ...` 与 `/api/status` 的 `ocr_ready` / `ocr_status`
+- `email / phone_cn / ip_address / password_dots` 误伤率过高，默认不参与门禁，需要时自行加回
+- 完整敏感词表在 `data/sensitive_keywords.txt`（`data/` 不进 git），仓库只留示例词，避免公开个人维护的过滤清单
 
 ## 工作日界（重要）
 

@@ -63,21 +63,40 @@ privacy:
       x_end: 1.0
 
   # Layer 3: OCR 内容检测
+  # ── Layer3：OCR 内容门禁 ──
+  # 命中下列关键词/正则的截图**不发送云端 LLM**，按 on_hit 处理（默认整图删除）
   content_detection:
-    enabled: true               # 是否启用 OCR（需要安装 Tesseract）
-    tesseract_path: ""          # Tesseract 可执行文件路径（留空自动查找）
-    language: "chi_sim+eng"     # OCR 语言
-    blur_radius: 25             # 敏感区域模糊半径（像素）
+    enabled: true
+    engine: "windows_ocr"       # windows_ocr（系统内置，需语言包）| tesseract（需装二进制）
+    language: "zh-Hans-CN"      # Windows OCR 语言标签
+    tesseract_language: "chi_sim+eng"   # 仅 engine=tesseract 时使用
+    tesseract_path: ""          # 仅 engine=tesseract 时使用，留空自动查找
+    max_image_dim: 4000         # OCR 前缩放上限（控制耗时）
+    fail_closed: false          # OCR 不可用时是否也拦截（true=宁可全拦，false=记录告警后放行）
+    on_hit: "delete"            # 命中后处置：delete=整图删除不留痕迹
+    blur_radius: 25             # 备用：区域模糊半径（像素）
+
+    # 敏感词：完整词表放本地未跟踪文件（默认 data/sensitive_keywords.txt，一行一词，# 开头为注释）
+    # 仓库里只保留通用示例，避免把个人维护的过滤清单公开
+    keyword_file: "data/sensitive_keywords.txt"
+    sensitive_keywords:
+      - "色情"
+      - "成人视频"
+      - "里番"
+      - "无码"
+      - "nsfw"
+      - "r18"
+      - "私钥"
+      - "助记词"
+      - "seed phrase"
+
     patterns:
-      # 匹配到以下模式 → 该区域被模糊
-      email: "[\\w.+-]+@[\\w-]+\\.[a-zA-Z]{2,}"
-      phone_cn: "1[3-9]\\d{9}"
+      # 命中以下正则同样拦截（只保留强标识，避免误删）
       id_card: "\\d{17}[\\dXx]"
       bank_card: "\\d{16,19}"
       api_key: "(sk|pk|api|token|secret|key)-[a-zA-Z0-9_\\-]{20,}"
-      ip_address: "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}"
-      # 密码输入框特征：连续 4 个以上 •
-      password_dots: "[•●]{4,}"
+      # 备注：email / phone_cn / ip_address / password_dots 误伤率过高（登录框、内网 IP 到处都是），
+      # 默认不参与门禁；需要时自行加回。
 
   # 窗口标题关键词过滤
   title_blacklist:

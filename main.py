@@ -478,6 +478,8 @@ class WorkReporterApp:
         # 隐私统计
         stats = self.privacy.get_stats()
         lines.append(f"🛡 隐私过滤: 跳过 {stats['skip_count']} 次, 区域模糊 {stats['blur_count']} 次")
+        ocr_state = "✅ 就绪" if stats.get("ocr_ready") else "⚠ 不可用"
+        lines.append(f"🔒 OCR 门禁: {ocr_state} ({stats.get('ocr_status', '-')}), 命中 {stats['ocr_match_count']} 次")
 
         # 下次报告时间
         next_times = self.scheduler.get_next_report_times()

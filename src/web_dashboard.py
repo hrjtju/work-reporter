@@ -869,6 +869,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "privacy_skips": app.privacy.get_stats()["skip_count"],
             "privacy_blurs": app.privacy.get_stats()["blur_count"],
             "ocr_matches": app.privacy.get_stats()["ocr_match_count"],
+            "ocr_ready": app.privacy.get_stats()["ocr_ready"],
+            "ocr_status": app.privacy.get_stats()["ocr_status"],
             "has_daily_report": app.store.get_daily_report(target_date) is not None,
             "status_text": app._get_status_text(),
             "next_reports": {
